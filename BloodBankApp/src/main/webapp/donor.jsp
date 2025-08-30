@@ -1,46 +1,49 @@
-<%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ page import="model.User, dao.HospitalDAO, model.Hospital, java.util.List" %>
+<%
+  User u = (User) session.getAttribute("user");
+  if (u == null || !"DONOR".equals(u.getRole())) { 
+      response.sendRedirect("login.jsp"); 
+      return;
+  }
+  // This is needed for the new donation form with the hospital dropdown
+  List<Hospital> hospitals = (List<Hospital>) request.getAttribute("hospitals");
+%>
+<!DOCTYPE html>
 <html>
 <head>
-    <title>Donate Blood</title>
+  <title>Donor Dashboard</title>
 </head>
 <body>
-    <h2>Blood Donation Form</h2>
+  <h3>Welcome, <%= u.getName() %> (Donor)</h3>
+  <p>Your Blood Group: <%= u.getBloodGroup() %></p>
+  <p>Next eligible date for donation: <%= u.getNextEligibleDate() %></p>
 
-    <!-- Show message if servlet sets it -->
-    <c:if test="${not empty msg}">
-        <p style="color:red;">${msg}</p>
-    </c:if>
+  <hr>
+  <h3>Record a New Donation</h3>
+  <form action="donate" method="post">
+    
+    <label for="hospital_id">Select Hospital:</label>
+    <select name="hospital_id" id="hospital_id" required>
+        <% if (hospitals != null) { 
+            for (Hospital h : hospitals) { %>
+                <option value="<%= h.getId() %>"><%= h.getName() %></option>
+            <% }
+        } %>
+    </select>
+    <br><br>
 
-    <form action="donate" method="post">
-        <!-- Hidden donor id (should be passed from session or prefilled) -->
-        <input type="hidden" name="user_id" value="${sessionScope.user.userId}" />
+    <label for="units">Units Donated:</label>
+    <input type="number" id="units" name="units" min="1" value="1" required>
+    <br><br>
+    
+    <button type="submit">Record Donation</button>
+  </form>
 
-        <label>Blood Group:</label>
-        <select name="blood_group" required>
-            <option value="">--Select--</option>
-            <option value="A+">A+</option>
-            <option value="A-">A-</option>
-            <option value="B+">B+</option>
-            <option value="B-">B-</option>
-            <option value="O+">O+</option>
-            <option value="O-">O-</option>
-            <option value="AB+">AB+</option>
-            <option value="AB-">AB-</option>
-        </select><br/>
+  <p style="color:green; font-weight:bold;">
+    <%= request.getAttribute("msg") == null ? "" : request.getAttribute("msg") %>
+  </p>
 
-        <label>Units:</label>
-        <input type="number" name="units" min="1" required /><br/>
-
-        <label>Select Hospital:</label>
-        <select name="hospital_id" required>
-            <option value="">--Select Hospital--</option>
-            <c:forEach var="hospital" items="${hospitals}">
-                <option value="${hospital.hospitalId}">${hospital.name}</option>
-            </c:forEach>
-        </select><br/>
-
-        <button type="submit">Donate</button>
-    </form>
+  <br>
+  <a href="logout">Logout</a>
 </body>
 </html>

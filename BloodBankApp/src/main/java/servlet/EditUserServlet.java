@@ -10,62 +10,63 @@ import java.io.IOException;
 
 @WebServlet("/admin/editUser")
 public class EditUserServlet extends HttpServlet {
+    
+    // This method shows the form to edit a user
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         
+        // Security check for ADMIN role
         HttpSession session = request.getSession(false);
-        User sessionUser = (User) session.getAttribute("user");
-        if (sessionUser == null || !"ADMIN".equals(sessionUser.getRole())) {
+        if (session == null || !"ADMIN".equals(((User) session.getAttribute("user")).getRole())) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
         }
 
-        int userId = Integer.parseInt(request.getParameter("userId"));
         try {
-            User user = null;
-            for (User u : UserDAO.getAllUsers()) {
-                if (u.getUserId() == userId) {
-                    user = u;
-                    break;
-                }
-            }
+            int userId = Integer.parseInt(request.getParameter("userId"));
+            // ✅ EFFICIENT: Fetch only the specific user needed for editing
+            User user = UserDAO.getUserById(userId);
+
             if (user != null) {
                 request.setAttribute("user", user);
                 RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/editUser.jsp");
                 rd.forward(request, response);
             } else {
-                response.sendRedirect(request.getContextPath() + "/admin/users");
+                // If user not found, redirect back to the user list
+                response.sendRedirect(request.getContextPath() + "/admin/users?error=User+not+found");
             }
         } catch (Exception e) {
-            throw new ServletException(e);
+            throw new ServletException("Error loading user for editing", e);
         }
     }
 
+    // This method processes the form submission
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
 
+        // Security check for ADMIN role
         HttpSession session = request.getSession(false);
-        User sessionUser = (User) session.getAttribute("user");
-        if (sessionUser == null || !"ADMIN".equals(sessionUser.getRole())) {
+        if (session == null || !"ADMIN".equals(((User) session.getAttribute("user")).getRole())) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
         }
 
-        int userId = Integer.parseInt(request.getParameter("userId"));
-        String name = request.getParameter("name");
-        String email = request.getParameter("email");
-        String bg = request.getParameter("bloodGroup");
-
         try {
-            // Update user in DB
-            // We'll add an updateUser method in UserDAO
+            // Get form parameters
+            int userId = Integer.parseInt(request.getParameter("userId"));
+            String name = request.getParameter("name");
+            String email = request.getParameter("email");
+            String bg = request.getParameter("bloodGroup");
+
+            // ✅ Call the newly created updateUser method in the DAO
             UserDAO.updateUser(userId, name, email, bg);
 
-            response.sendRedirect(request.getContextPath() + "/admin/users");
+            // Redirect back to the user list with a success message
+            response.sendRedirect(request.getContextPath() + "/admin/users?success=User+updated+successfully");
         } catch (Exception e) {
-            throw new ServletException(e);
+            throw new ServletException("Error updating user", e);
         }
     }
 }

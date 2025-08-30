@@ -13,51 +13,40 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.List;
 
-@WebServlet("/admin/users")   // 👉 Access at http://localhost:8080/BloodBankApp/admin/users
+@WebServlet("/admin/users")
 public class AdminViewUsersServlet extends HttpServlet {
 
-    private static final long serialVersionUID = 1L;  // ✅ Fixes the warning
+    private static final long serialVersionUID = 1L;
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
 
-        response.setContentType("text/html;charset=UTF-8");
-
-        // ✅ SESSION CHECK: ensure only logged-in ADMIN can access
+        // Security Check: Ensure only a logged-in ADMIN can access this page
         HttpSession session = request.getSession(false);
-        User sessionUser = null;
-        if (session != null) {
-            sessionUser = (User) session.getAttribute("user");
-        }
-        if (sessionUser == null || !"ADMIN".equals(sessionUser.getRole())) {
+        if (session == null || !"ADMIN".equals(((User) session.getAttribute("user")).getRole())) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
         }
 
         try {
-            // Fetch users from DAO
+            // Fetch the list of users from the DAO
             List<User> userList = UserDAO.getAllUsers();
 
-            // Safety: handle empty/null list
+            // Set the list as an attribute for the JSP to use
             if (userList == null || userList.isEmpty()) {
-                request.setAttribute("message", "No users found in the system.");
+                request.setAttribute("message", "No registered users were found.");
             } else {
                 request.setAttribute("users", userList);
             }
 
-            // Forward to JSP inside WEB-INF (not directly accessible)
+            // Forward the request to the JSP page for display
             RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/adminUsers.jsp");
             rd.forward(request, response);
 
         } catch (Exception e) {
-            // Log the exception stack trace for debugging
             e.printStackTrace();
-
-            // Set error message attribute for JSP (optional)
-            request.setAttribute("errorMessage", "Unable to load users at this time.");
-
-            // Forward to an error page or show error message in the same JSP
+            request.setAttribute("errorMessage", "Error: Unable to load user data.");
             RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/adminUsers.jsp");
             rd.forward(request, response);
         }
