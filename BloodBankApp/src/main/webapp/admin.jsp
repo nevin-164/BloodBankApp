@@ -21,6 +21,7 @@
         <li><a href="stock.jsp">View Stock</a></li>
     </ul>
 
-    <a href="logout.jsp">Logout</a>
+    <a href="<%=request.getContextPath()%>/logout">Logout</a>
+    
 </body>
 </html>
