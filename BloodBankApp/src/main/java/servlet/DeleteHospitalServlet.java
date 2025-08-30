@@ -12,9 +12,9 @@ public class DeleteHospitalServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         int id = Integer.parseInt(req.getParameter("hospitalId"));
         try {
-            // Correct DAO method
             HospitalDAO.deleteHospital(id);
-            res.sendRedirect("adminHospitals.jsp?success=Hospital deleted successfully");
+            // ✅ FIXED: Redirect to the servlet that reloads the hospital list
+            res.sendRedirect(req.getContextPath() + "/admin/hospitals?success=Hospital+deleted+successfully");
         } catch (Exception e) {
             throw new ServletException(e);
         }

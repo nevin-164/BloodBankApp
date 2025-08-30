@@ -32,13 +32,13 @@ public class AddHospitalServlet extends HttpServlet {
         hospital.setAddress(address);
 
         try {
-            // Correct DAO method
             HospitalDAO.insertHospital(hospital);
-
-            response.sendRedirect("adminHospitals.jsp?success=Hospital added successfully");
+            // ✅ FIXED: Redirect to the servlet that reloads the hospital list
+            response.sendRedirect(request.getContextPath() + "/admin/hospitals?success=Hospital+added+successfully");
         } catch (Exception e) {
             e.printStackTrace();
-            response.sendRedirect("adminHospitals.jsp?error=Unable to add hospital");
+            // ✅ FIXED: Error redirect also goes to the servlet
+            response.sendRedirect(request.getContextPath() + "/admin/hospitals?error=Unable+to+add+hospital");
         }
     }
 }

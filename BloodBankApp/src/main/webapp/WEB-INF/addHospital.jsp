@@ -5,7 +5,7 @@
 </head>
 <body>
     <h2>Add Hospital</h2>
-    <form action="AddHospitalServlet" method="post">
+    <form action="${pageContext.request.contextPath}/AddHospitalServlet" method="post">
         <label>Name:</label><input type="text" name="name" required><br>
         <label>Email:</label><input type="email" name="email" required><br>
         <label>Password:</label><input type="password" name="password" required><br>

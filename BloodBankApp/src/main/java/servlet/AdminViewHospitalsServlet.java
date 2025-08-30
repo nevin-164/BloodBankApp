@@ -15,7 +15,7 @@ public class AdminViewHospitalsServlet extends HttpServlet {
         HttpSession session = req.getSession(false);
         model.User admin = (session != null) ? (model.User)session.getAttribute("user") : null;
         if(admin == null || !"ADMIN".equals(admin.getRole())) {
-            res.sendRedirect("login.jsp");
+            res.sendRedirect(req.getContextPath() + "/login.jsp");
             return;
         }
 
@@ -23,11 +23,10 @@ public class AdminViewHospitalsServlet extends HttpServlet {
             List<Hospital> hospitals = HospitalDAO.getAllHospitals();
             req.setAttribute("hospitals", hospitals);
 
-            // ✅ Forward to JSP directly under webapp
-            req.getRequestDispatcher("adminHospitals.jsp").forward(req, res);
+            // ✅ FIXED: Added a "/" to make the path absolute to the webapp root
+            req.getRequestDispatcher("/adminHospitals.jsp").forward(req, res);
         } catch(Exception e) {
             throw new ServletException(e);
         }
     }
 }
-
