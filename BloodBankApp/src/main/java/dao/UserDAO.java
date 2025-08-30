@@ -81,4 +81,28 @@ public class UserDAO {
             ps.executeUpdate();
         }
     }
+
+//Get next eligible donation date of a user
+public static java.sql.Date getNextEligibleDate(int userId) throws Exception {
+ String sql = "SELECT next_eligible_date FROM users WHERE user_id=?";
+ try (Connection con = DBUtil.getConnection();
+      PreparedStatement ps = con.prepareStatement(sql)) {
+     ps.setInt(1, userId);
+     try (ResultSet rs = ps.executeQuery()) {
+         return rs.next() ? rs.getDate(1) : null;
+     }
+ }
+}
+
+//Update last donation date and next eligible date for a user
+public static void updateDonationDates(int userId, java.sql.Date lastDonation, java.sql.Date nextEligible) throws Exception {
+ String sql = "UPDATE users SET last_donation_date=?, next_eligible_date=? WHERE user_id=?";
+ try (Connection con = DBUtil.getConnection();
+      PreparedStatement ps = con.prepareStatement(sql)) {
+     ps.setDate(1, lastDonation);
+     ps.setDate(2, nextEligible);
+     ps.setInt(3, userId);
+     ps.executeUpdate();
+ }
+}
 }
