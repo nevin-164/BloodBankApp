@@ -22,6 +22,7 @@
                 <th>Name</th>
                 <th>Email</th>
                 <th>Blood Group</th>
+                <th>Actions</th>
             </tr>
             <c:forEach var="u" items="${users}">
                 <tr>
@@ -29,6 +30,11 @@
                     <td>${u.name}</td>
                     <td>${u.email}</td>
                     <td>${u.bloodGroup}</td>
+                    <td>
+                        <a href="${pageContext.request.contextPath}/admin/editUser?userId=${u.userId}">Edit</a> |
+                        <a href="${pageContext.request.contextPath}/admin/deleteUser?userId=${u.userId}" 
+                           onclick="return confirm('Are you sure you want to delete this user?');">Delete</a>
+                    </td>
                 </tr>
             </c:forEach>
         </table>
