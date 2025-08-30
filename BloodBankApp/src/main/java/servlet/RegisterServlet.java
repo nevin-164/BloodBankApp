@@ -1,20 +1,13 @@
 package servlet;
 
 import dao.UserDAO;
-import dao.DonationDAO;
-import dao.StockDAO;
-
+import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.ServletException;
 
 import java.io.IOException;
-import java.sql.Date;
-import java.time.LocalDate;
-
-
 
 @WebServlet("/register")
 public class RegisterServlet extends HttpServlet {
@@ -23,19 +16,39 @@ public class RegisterServlet extends HttpServlet {
         String email = req.getParameter("email");
         String password = req.getParameter("password");
         String role = req.getParameter("role");
-        String bloodGroup = req.getParameter("blood_group"); // may be null for patients/admin
-
-        if (name == null || email == null || password == null || role == null) {
-            req.setAttribute("msg", "Please fill all required fields.");
-            req.getRequestDispatcher("register.jsp").forward(req, res);
-            return;
-        }
+        String bloodGroup = req.getParameter("blood_group");
 
         try {
+            // ✅ SECURE: Server-side validation
+            if (!"DONOR".equals(role) && !"PATIENT".equals(role)) {
+                req.setAttribute("msg", "Invalid role selected.");
+                req.getRequestDispatcher("register.jsp").forward(req, res);
+                return;
+            }
+            
+            // ✅ SECURE: Check if email is already registered
+            if (UserDAO.isEmailExists(email)) {
+                req.setAttribute("msg", "An account with this email already exists.");
+                req.getRequestDispatcher("register.jsp").forward(req, res);
+                return;
+            }
+            
+            // ✅ LOGIC: Ensure donors provide a blood group
+            if ("DONOR".equals(role) && (bloodGroup == null || bloodGroup.isEmpty())) {
+                 req.setAttribute("msg", "Donors must provide a blood group.");
+                 req.getRequestDispatcher("register.jsp").forward(req, res);
+                 return;
+            }
+
+            // If all checks pass, insert the user
             UserDAO.insert(name, email, password, role, bloodGroup);
-            res.sendRedirect("login.jsp");
+            
+            // Redirect to login with a success message
+            res.sendRedirect("login.jsp?success=Registration+successful.+Please+login.");
+
         } catch (Exception e) {
-            throw new ServletException(e);
+            // Handle database or other unexpected errors
+            throw new ServletException("Error during user registration.", e);
         }
     }
 }

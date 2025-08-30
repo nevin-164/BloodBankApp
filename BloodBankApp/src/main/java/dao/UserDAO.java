@@ -4,6 +4,7 @@ import model.User;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import jakarta.servlet.ServletException;
 
 public class UserDAO {
 
@@ -14,55 +15,62 @@ public class UserDAO {
             ps.setString(1, email);
             ps.setString(2, password);
             try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return null;
-                User u = new User();
-                u.setUserId(rs.getInt("user_id"));
-                u.setName(rs.getString("name"));
-                u.setEmail(rs.getString("email"));
-                u.setRole(rs.getString("role"));
-                u.setBloodGroup(rs.getString("blood_group"));
-                u.setLastDonationDate(rs.getDate("last_donation_date"));
-                u.setNextEligibleDate(rs.getDate("next_eligible_date"));
-                return u;
+                if (rs.next()) {
+                    User user = new User();
+                    user.setId(rs.getInt("user_id"));
+                    user.setName(rs.getString("name"));
+                    user.setEmail(rs.getString("email"));
+                    user.setRole(rs.getString("role"));
+                    user.setBloodGroup(rs.getString("blood_group"));
+                    return user;
+                }
             }
         }
-    }
-
-    public static void insert(String name, String email, String password, String role, String bg) throws Exception {
-        String sql = "INSERT INTO users(name,email,password,role,blood_group) VALUES(?,?,?,?,?)";
-        try (Connection con = DBUtil.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, name);
-            ps.setString(2, email);
-            ps.setString(3, password);
-            ps.setString(4, role);
-            ps.setString(5, bg);
-            ps.executeUpdate();
-        }
+        return null;
     }
 
     public static List<User> getAllUsers() throws Exception {
-        List<User> list = new ArrayList<>();
-        String sql = "SELECT user_id, name, email, blood_group, role FROM users";  
+        List<User> userList = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE role != 'ADMIN'"; 
         try (Connection con = DBUtil.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
-
             while (rs.next()) {
-                User u = new User();
-                u.setUserId(rs.getInt("user_id"));
-                u.setName(rs.getString("name"));
-                u.setEmail(rs.getString("email"));
-                u.setBloodGroup(rs.getString("blood_group"));
-                u.setRole(rs.getString("role"));
-                list.add(u);
+                User user = new User();
+                user.setId(rs.getInt("user_id"));
+                user.setName(rs.getString("name"));
+                user.setEmail(rs.getString("email"));
+                user.setBloodGroup(rs.getString("blood_group"));
+                user.setRole(rs.getString("role"));
+                userList.add(user);
             }
         }
-        return list;
+        return userList;
+    }
+
+    public static User getUserById(int userId) throws Exception {
+        String sql = "SELECT * FROM users WHERE user_id = ?";
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    User user = new User();
+                    user.setId(rs.getInt("user_id"));
+                    user.setName(rs.getString("name"));
+                    user.setEmail(rs.getString("email"));
+                    // ✅ FIXED: Removed the lines for phone and address to match your database
+                    user.setBloodGroup(rs.getString("blood_group"));
+                    user.setRole(rs.getString("role"));
+                    return user;
+                }
+            }
+        }
+        return null;
     }
 
     public static void updateUser(int userId, String name, String email, String bloodGroup) throws Exception {
-        String sql = "UPDATE users SET name=?, email=?, blood_group=? WHERE user_id=?";
+        String sql = "UPDATE users SET name = ?, email = ?, blood_group = ? WHERE user_id = ?";
         try (Connection con = DBUtil.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, name);
@@ -74,35 +82,92 @@ public class UserDAO {
     }
 
     public static void deleteUser(int userId) throws Exception {
-        String sql = "DELETE FROM users WHERE user_id=?";
+        String deleteRequestsSQL = "DELETE FROM requests WHERE patient_id = ?";
+        String deleteDonationsSQL = "DELETE FROM donations WHERE user_id = ?";
+        String deleteUserSQL = "DELETE FROM users WHERE user_id = ?";
+        Connection con = null;
+        try {
+            con = DBUtil.getConnection();
+            con.setAutoCommit(false);
+            try (PreparedStatement ps = con.prepareStatement(deleteRequestsSQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = con.prepareStatement(deleteDonationsSQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = con.prepareStatement(deleteUserSQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+            con.commit();
+        } catch (Exception e) {
+            if (con != null) con.rollback();
+            throw new ServletException("Error deleting user", e);
+        } finally {
+            if (con != null) {
+                con.setAutoCommit(true);
+                con.close();
+            }
+        }
+    }
+
+    // ✅ FIXED: Rewritten to solve the "Unreachable code" compilation error
+    public static boolean isEmailExists(String email) throws Exception {
+        boolean exists = false;
+        String sql = "SELECT COUNT(*) FROM users WHERE email = ?";
         try (Connection con = DBUtil.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, userId);
+            ps.setString(1, email);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    exists = rs.getInt(1) > 0;
+                }
+            }
+        }
+        return exists;
+    }
+
+    public static void insert(String name, String email, String password, String role, String bloodGroup) throws Exception {
+        String sql = "INSERT INTO users (name, email, password, role, blood_group) VALUES (?, ?, ?, ?, ?)";
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.setString(2, email);
+            ps.setString(3, password);
+            ps.setString(4, role);
+            if (bloodGroup != null && !bloodGroup.isEmpty()) {
+                ps.setString(5, bloodGroup);
+            } else {
+                ps.setNull(5, java.sql.Types.VARCHAR);
+            }
             ps.executeUpdate();
         }
     }
 
-//Get next eligible donation date of a user
-public static java.sql.Date getNextEligibleDate(int userId) throws Exception {
- String sql = "SELECT next_eligible_date FROM users WHERE user_id=?";
- try (Connection con = DBUtil.getConnection();
-      PreparedStatement ps = con.prepareStatement(sql)) {
-     ps.setInt(1, userId);
-     try (ResultSet rs = ps.executeQuery()) {
-         return rs.next() ? rs.getDate(1) : null;
-     }
- }
-}
+    public static Date getNextEligibleDate(int userId) throws Exception {
+        String sql = "SELECT next_eligible_date FROM users WHERE user_id=?";
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDate("next_eligible_date");
+                }
+            }
+        }
+        return null;
+    }
 
-//Update last donation date and next eligible date for a user
-public static void updateDonationDates(int userId, java.sql.Date lastDonation, java.sql.Date nextEligible) throws Exception {
- String sql = "UPDATE users SET last_donation_date=?, next_eligible_date=? WHERE user_id=?";
- try (Connection con = DBUtil.getConnection();
-      PreparedStatement ps = con.prepareStatement(sql)) {
-     ps.setDate(1, lastDonation);
-     ps.setDate(2, nextEligible);
-     ps.setInt(3, userId);
-     ps.executeUpdate();
- }
-}
+    public static void updateDonationDates(int userId, Date lastDonation, Date nextEligible) throws Exception {
+        String sql = "UPDATE users SET last_donation_date=?, next_eligible_date=? WHERE user_id=?";
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setDate(1, lastDonation);
+            ps.setDate(2, nextEligible);
+            ps.setInt(3, userId);
+            ps.executeUpdate();
+        }
+    }
 }

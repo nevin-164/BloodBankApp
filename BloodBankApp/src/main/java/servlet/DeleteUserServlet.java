@@ -2,14 +2,11 @@ package servlet;
 
 import dao.UserDAO;
 import model.User;
-import dao.DBUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 
 @WebServlet("/admin/deleteUser")
 public class DeleteUserServlet extends HttpServlet {
@@ -18,29 +15,24 @@ public class DeleteUserServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
 
+        // Security Check for ADMIN role
         HttpSession session = request.getSession(false);
-        User sessionUser = (session != null) ? (User) session.getAttribute("user") : null;
-        if (sessionUser == null || !"ADMIN".equals(sessionUser.getRole())) {
+        if (session == null || !"ADMIN".equals(((User) session.getAttribute("user")).getRole())) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
         }
 
-        int userId = Integer.parseInt(request.getParameter("userId"));
         try {
-            // 1️⃣ Delete all dependent requests first
-            try (Connection con = DBUtil.getConnection();
-                 PreparedStatement ps = con.prepareStatement("DELETE FROM requests WHERE patient_id=?")) {
-                ps.setInt(1, userId);
-                ps.executeUpdate();
-            }
-
-            // 2️⃣ Delete the user
+            int userId = Integer.parseInt(request.getParameter("userId"));
+            
+            // ✅ CLEAN: Call the single DAO method to handle all deletions
             UserDAO.deleteUser(userId);
 
-            // 3️⃣ Redirect to user list
-            response.sendRedirect(request.getContextPath() + "/admin/users");
+            // Redirect to the user list with a success message
+            response.sendRedirect(request.getContextPath() + "/admin/users?success=User+deleted+successfully");
         } catch (Exception e) {
-            throw new ServletException(e);
+            // Forward any errors to be handled
+            throw new ServletException("Error during user deletion", e);
         }
     }
 }

@@ -2,37 +2,45 @@ package servlet;
 
 import dao.StockDAO;
 import dao.DBUtil;
+import model.User;
 
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.ServletException;
 
 import java.io.IOException;
 import java.sql.*;
 
-
 @WebServlet("/request-blood")
 public class RequestBloodServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
-        String patientIdStr = req.getParameter("patient_id");
-        String bg = req.getParameter("blood_group");
+
+        // ✅ SECURE: Get the logged-in patient from the session
+        HttpSession session = req.getSession(false);
+        if (session == null || session.getAttribute("user") == null || !"PATIENT".equals(((User) session.getAttribute("user")).getRole())) {
+            res.sendRedirect("login.jsp?error=Please+login+as+a+patient+to+request+blood.");
+            return;
+        }
+        User patient = (User) session.getAttribute("user");
+
+        // ✅ SECURE: Get blood group from the session, not the form
+        String bg = patient.getBloodGroup(); 
         String unitsStr = req.getParameter("units");
 
-        if (patientIdStr == null || bg == null || unitsStr == null) {
-            req.setAttribute("msg", "Missing parameters.");
+        if (unitsStr == null) {
+            req.setAttribute("msg", "Missing number of units.");
             req.getRequestDispatcher("patient.jsp").forward(req, res);
             return;
         }
 
         try {
-            int patientId = Integer.parseInt(patientIdStr);
             int units = Integer.parseInt(unitsStr);
-
             if (units <= 0) {
-                req.setAttribute("msg", "Units must be positive.");
+                req.setAttribute("msg", "Units must be a positive number.");
                 req.getRequestDispatcher("patient.jsp").forward(req, res);
                 return;
             }
@@ -40,11 +48,12 @@ public class RequestBloodServlet extends HttpServlet {
             try (Connection con = DBUtil.getConnection()) {
                 con.setAutoCommit(false);
 
+                // ✅ SECURE: Insert the request using the patient ID from the session
                 int requestId;
                 try (PreparedStatement ps = con.prepareStatement(
                         "INSERT INTO requests(patient_id,blood_group,units_requested,status) VALUES(?,?,?,'PENDING')",
                         Statement.RETURN_GENERATED_KEYS)) {
-                    ps.setInt(1, patientId);
+                    ps.setInt(1, patient.getId()); // Use patient ID from session
                     ps.setString(2, bg);
                     ps.setInt(3, units);
                     ps.executeUpdate();
@@ -59,26 +68,26 @@ public class RequestBloodServlet extends HttpServlet {
                     }
                 }
 
-                boolean ok = StockDAO.takeUnits(bg, units);
+                boolean isFulfilled = StockDAO.takeUnits(bg, units);
 
                 try (PreparedStatement upd = con.prepareStatement(
                         "UPDATE requests SET status=? WHERE request_id=?")) {
-                    upd.setString(1, ok ? "FULFILLED" : "PENDING");
+                    upd.setString(1, isFulfilled ? "FULFILLED" : "PENDING");
                     upd.setInt(2, requestId);
                     upd.executeUpdate();
                 }
 
                 con.commit();
-
-                req.setAttribute("msg", ok ? "Request fulfilled ✅" : "Insufficient stock. Request pending ⏳");
+                
+                req.setAttribute("msg", isFulfilled ? "Request fulfilled successfully! ✅" : "Request is pending due to insufficient stock. ⏳");
                 req.getRequestDispatcher("patient.jsp").forward(req, res);
             }
 
         } catch (NumberFormatException e) {
-            req.setAttribute("msg", "Invalid number format.");
+            req.setAttribute("msg", "Invalid number format for units.");
             req.getRequestDispatcher("patient.jsp").forward(req, res);
         } catch (Exception e) {
-            throw new ServletException(e);
+            throw new ServletException("Error processing blood request", e);
         }
     }
 }
