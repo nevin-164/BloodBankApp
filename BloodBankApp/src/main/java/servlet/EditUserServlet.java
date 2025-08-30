@@ -7,17 +7,15 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import jakarta.servlet.RequestDispatcher;
 import java.io.IOException;
-import java.util.List;
 
 @WebServlet("/admin/editUser")
 public class EditUserServlet extends HttpServlet {
-
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-
+        
         HttpSession session = request.getSession(false);
-        User sessionUser = (session != null) ? (User) session.getAttribute("user") : null;
+        User sessionUser = (User) session.getAttribute("user");
         if (sessionUser == null || !"ADMIN".equals(sessionUser.getRole())) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
@@ -49,7 +47,7 @@ public class EditUserServlet extends HttpServlet {
             throws ServletException, IOException {
 
         HttpSession session = request.getSession(false);
-        User sessionUser = (session != null) ? (User) session.getAttribute("user") : null;
+        User sessionUser = (User) session.getAttribute("user");
         if (sessionUser == null || !"ADMIN".equals(sessionUser.getRole())) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
             return;
@@ -61,7 +59,10 @@ public class EditUserServlet extends HttpServlet {
         String bg = request.getParameter("bloodGroup");
 
         try {
+            // Update user in DB
+            // We'll add an updateUser method in UserDAO
             UserDAO.updateUser(userId, name, email, bg);
+
             response.sendRedirect(request.getContextPath() + "/admin/users");
         } catch (Exception e) {
             throw new ServletException(e);

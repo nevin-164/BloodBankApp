@@ -1,19 +1,40 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8"
-    pageEncoding="UTF-8"%>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%
+    String msg = (String) request.getAttribute("msg");
+%>
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-
+    <title>User Login</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h3>Login</h3>
-<form action="login" method="post">
-  Email: <input type="email" name="email" required><br>
-  Password: <input type="password" name="password" required><br>
-  <button type="submit">Login</button>
+<h1>User Login</h1>
+
+<% if (msg != null) { %>
+    <p style="color:red;"><%= msg %></p>
+<% } %>
+
+<form action="<%= request.getContextPath() %>/login" method="post">
+
+    <label>Email:</label>
+    <input type="email" name="email" required><br>
+
+    <label>Password:</label>
+    <input type="password" name="password" required><br>
+
+    <label>Role:</label>
+    <select name="role" required>
+        <option value="donor">Donor</option>
+        <option value="patient">Patient</option>
+        <option value="hospital">Hospital</option>
+        <option value="admin">Admin</option>
+    </select><br>
+
+    <input type="submit" value="Login">
 </form>
-<%= request.getAttribute("msg") == null ? "" : request.getAttribute("msg") %>
+
+<p>Don’t have an account? <a href="register.jsp">Register here</a></p>
 
 </body>
 </html>

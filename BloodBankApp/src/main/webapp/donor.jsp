@@ -1,31 +1,46 @@
-<%@ page import="model.User" %>
-<%
-  User u = (User) session.getAttribute("user");
-  if (u == null || !"DONOR".equals(u.getRole())) { 
-      response.sendRedirect("login.jsp"); 
-      return; 
-  }
-%>
-<!DOCTYPE html>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <html>
 <head>
-  <title>Donor Dashboard</title>
+    <title>Donate Blood</title>
 </head>
 <body>
-  <h3>Welcome, <%= u.getName() %> (Donor)</h3>
-  <p>Next eligible date: <%= u.getNextEligibleDate() %></p>
+    <h2>Blood Donation Form</h2>
 
-  <form action="donate" method="post">
-    <input type="hidden" name="user_id" value="<%= u.getUserId() %>">
-    Blood Group: <input name="blood_group" value="<%= u.getBloodGroup() %>" required><br>
-    Units: <input type="number" name="units" min="1" value="1"><br>
-    <button type="submit">Record Donation</button>
-  </form>
+    <!-- Show message if servlet sets it -->
+    <c:if test="${not empty msg}">
+        <p style="color:red;">${msg}</p>
+    </c:if>
 
-  <p style="color:green;">
-    <%= request.getAttribute("msg") == null ? "" : request.getAttribute("msg") %>
-  </p>
+    <form action="donate" method="post">
+        <!-- Hidden donor id (should be passed from session or prefilled) -->
+        <input type="hidden" name="user_id" value="${sessionScope.user.userId}" />
 
-  <a href="index.jsp">Home</a>
+        <label>Blood Group:</label>
+        <select name="blood_group" required>
+            <option value="">--Select--</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="O+">O+</option>
+            <option value="O-">O-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+        </select><br/>
+
+        <label>Units:</label>
+        <input type="number" name="units" min="1" required /><br/>
+
+        <label>Select Hospital:</label>
+        <select name="hospital_id" required>
+            <option value="">--Select Hospital--</option>
+            <c:forEach var="hospital" items="${hospitals}">
+                <option value="${hospital.hospitalId}">${hospital.name}</option>
+            </c:forEach>
+        </select><br/>
+
+        <button type="submit">Donate</button>
+    </form>
 </body>
 </html>
