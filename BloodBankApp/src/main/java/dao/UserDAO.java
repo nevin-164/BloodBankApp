@@ -1,29 +1,33 @@
 package dao;
+
 import model.User;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UserDAO {
 
-    public static User findByEmailAndPassword(String email, String password) throws Exception {
-        String sql = "SELECT * FROM users WHERE email=? AND password=?";
-        try (Connection con = DBUtil.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, email);
-            ps.setString(2, password);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return null;
-                User u = new User();
-                u.setUserId(rs.getInt("user_id"));
-                u.setName(rs.getString("name"));
-                u.setEmail(rs.getString("email"));
-                u.setRole(rs.getString("role"));
-                u.setBloodGroup(rs.getString("blood_group"));
-                u.setLastDonationDate(rs.getDate("last_donation_date"));
-                u.setNextEligibleDate(rs.getDate("next_eligible_date"));
-                return u;
-            }
-        }
-    }
+	public static User findByEmailAndPassword(String email, String password) throws Exception {
+	    String sql = "SELECT * FROM users WHERE email=? AND password=?";
+	    try (Connection con = DBUtil.getConnection();
+	         PreparedStatement ps = con.prepareStatement(sql)) {
+	        ps.setString(1, email);
+	        ps.setString(2, password);
+	        try (ResultSet rs = ps.executeQuery()) {
+	            if (!rs.next()) return null;
+	            User u = new User();
+	            u.setUserId(rs.getInt("user_id"));
+	            u.setName(rs.getString("name"));
+	            u.setEmail(rs.getString("email"));
+	            u.setRole(rs.getString("role"));
+	            u.setBloodGroup(rs.getString("blood_group"));
+	            u.setLastDonationDate(rs.getDate("last_donation_date"));
+	            u.setNextEligibleDate(rs.getDate("next_eligible_date"));
+	            return u;
+	        }
+	    }
+	}
+
 
     public static void insert(String name, String email, String password, String role, String bg) throws Exception {
         String sql = "INSERT INTO users(name,email,password,role,blood_group) VALUES(?,?,?,?,?)";
@@ -58,5 +62,24 @@ public class UserDAO {
             ps.setInt(3, userId);
             ps.executeUpdate();
         }
+    }
+
+    public static List<User> getAllUsers() throws Exception {
+        List<User> list = new ArrayList<>();
+        String sql = "SELECT user_id, name, email, blood_group FROM users";  // adjust columns
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                User u = new User();
+                u.setUserId(rs.getInt("user_id"));
+                u.setName(rs.getString("name"));
+                u.setEmail(rs.getString("email"));
+                u.setBloodGroup(rs.getString("blood_group"));
+                list.add(u);
+            }
+        }
+        return list;
     }
 }
