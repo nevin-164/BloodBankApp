@@ -1,4 +1,5 @@
 eclipse.preferences.version=1
+encoding//src/main/webapp/WEB-INF/addHospital.jsp=UTF-8
 encoding//src/main/webapp/admin.jsp=UTF-8
 encoding//src/main/webapp/alerts.jsp=UTF-8
 encoding//src/main/webapp/patient.jsp=UTF-8

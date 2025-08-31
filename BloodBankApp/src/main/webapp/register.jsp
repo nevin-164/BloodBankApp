@@ -2,7 +2,8 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <html>
 <head>
-    <title>User Registration</title>
+    <%-- ✅ Name updated in the page title --%>
+    <title>PLASMIC - User Registration</title>
     <style>
         body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f4f4f4; padding: 20px 0; }
         .register-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 350px; }
@@ -28,11 +29,13 @@
         }
         .error-message { color: #d9534f; text-align: center; margin-top: 10px; font-weight: bold; }
         .link-group { text-align: center; margin-top: 15px; }
+        .link-group a { color: #337ab7; text-decoration: none; }
     </style>
 </head>
 <body>
     <div class="register-container">
-        <h2>Create an Account</h2>
+        <%-- ✅ Name updated in the main heading --%>
+        <h2>Create a PLASMIC Account</h2>
         <form action="${pageContext.request.contextPath}/register" method="post">
             <div class="input-group">
                 <label for="name">Full Name:</label>
@@ -47,7 +50,6 @@
                 <input type="password" id="password" name="password" required>
             </div>
             
-            <%-- ✅ ADDED: Contact Number Field --%>
             <div class="input-group">
                 <label for="contact_number">Contact Number:</label>
                 <input type="text" id="contact_number" name="contact_number" required>
