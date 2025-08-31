@@ -26,10 +26,8 @@
             cursor: pointer;
             font-size: 16px;
         }
-        button:hover { background-color: #218838; }
         .error-message { color: #d9534f; text-align: center; margin-top: 10px; font-weight: bold; }
         .link-group { text-align: center; margin-top: 15px; }
-        .link-group a { color: #337ab7; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -49,6 +47,12 @@
                 <input type="password" id="password" name="password" required>
             </div>
             
+            <%-- ✅ ADDED: Contact Number Field --%>
+            <div class="input-group">
+                <label for="contact_number">Contact Number:</label>
+                <input type="text" id="contact_number" name="contact_number" required>
+            </div>
+
             <div class="input-group">
                 <label for="role">Register as a:</label>
                 <select id="role" name="role" onchange="toggleBloodGroupField()" required>
@@ -56,7 +60,6 @@
                     <option value="PATIENT">Patient</option>
                 </select>
             </div>
-            
             <div class="input-group" id="blood-group-field">
                 <label for="blood_group">Blood Group:</label>
                 <select id="blood_group" name="blood_group">
@@ -66,7 +69,6 @@
                     <option value="O+">O+</option> <option value="O-">O-</option>
                 </select>
             </div>
-
             <button type="submit">Register</button>
         </form>
 
@@ -78,7 +80,6 @@
             <p>Already have an account? <a href="login.jsp">Login here</a></p>
         </div>
     </div>
-
     <script>
         function toggleBloodGroupField() {
             var role = document.getElementById('role').value;
@@ -89,7 +90,6 @@
                 bloodGroupField.style.display = 'none';
             }
         }
-        // Run on page load to set initial state
         toggleBloodGroupField();
     </script>
 </body>
