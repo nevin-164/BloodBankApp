@@ -18,8 +18,13 @@
         h2, h3 { color: #c9302c; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="number"], input[type="text"] { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
-        input[readonly] { background-color: #e9ecef; }
+        input[type="number"], select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
         button { background-color: #d9534f; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
         .message { padding: 10px; margin-top: 20px; border-radius: 4px; text-align: center; font-weight: bold; }
         .success { background-color: #dff0d8; color: #3c763d; }
@@ -35,21 +40,31 @@
 
         <h3>Request Blood</h3>
         <form action="request-blood" method="post">
+            
+            <%-- ✅ FIXED: Changed the fixed text box to a dropdown menu --%>
             <div class="form-group">
-                <label>Blood Group Needed:</label>
-                <%-- The patient's blood group is used automatically on the server --%>
-                <input type="text" value="<%= u.getBloodGroup() %>" readonly>
+                <label for="blood_group">Blood Group Needed:</label>
+                <select id="blood_group" name="blood_group" required>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                </select>
             </div>
+
             <div class="form-group">
                 <label for="units">Units:</label>
                 <input type="number" id="units" name="units" min="1" value="1" required>
             </div>
-            <button type="submit">Request Blood</button>
+            <button type="submit">Submit Request</button>
         </form>
 
-        <%-- Display messages from the servlet --%>
         <c:if test="${not empty msg}">
-            <p class="message ${msg.contains('fulfilled') ? 'success' : 'error'}">${msg}</p>
+            <p class="message ${msg.contains('submitted') ? 'success' : 'error'}">${msg}</p>
         </c:if>
     </div>
 </body>

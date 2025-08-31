@@ -19,4 +19,4 @@
         <a href="hospital-login.jsp" class="hospital-login">Hospital Login</a>
     </div>
 </body>
-</html>tml>
+</html>

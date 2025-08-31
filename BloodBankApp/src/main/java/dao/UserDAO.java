@@ -129,23 +129,34 @@ public class UserDAO {
         return exists;
     }
 
-    public static void insert(String name, String email, String password, String role, String bloodGroup) throws Exception {
-        String sql = "INSERT INTO users (name, email, password, role, blood_group) VALUES (?, ?, ?, ?, ?)";
-        try (Connection con = DBUtil.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+ // In UserDAO.java, replace the insert method with this one.
+
+ // In your UserDAO.java file, replace the insert method with this one.
+
+    public static void insert(String name, String email, String password, String role, String bloodGroup, String contactNumber) throws Exception {
+        // ✅ UPDATED: Added 'contact_number' to the SQL query
+        String sql = "INSERT INTO users (name, email, password, role, blood_group, contact_number) VALUES (?, ?, ?, ?, ?, ?)";
+        
+        try (java.sql.Connection con = DBUtil.getConnection();
+             java.sql.PreparedStatement ps = con.prepareStatement(sql)) {
+            
             ps.setString(1, name);
             ps.setString(2, email);
             ps.setString(3, password);
             ps.setString(4, role);
+            
             if (bloodGroup != null && !bloodGroup.isEmpty()) {
                 ps.setString(5, bloodGroup);
             } else {
                 ps.setNull(5, java.sql.Types.VARCHAR);
             }
+            
+            // ✅ ADDED: Set the value for the new contact_number parameter
+            ps.setString(6, contactNumber);
+            
             ps.executeUpdate();
         }
     }
-
     public static Date getNextEligibleDate(int userId) throws Exception {
         String sql = "SELECT next_eligible_date FROM users WHERE user_id=?";
         try (Connection con = DBUtil.getConnection();

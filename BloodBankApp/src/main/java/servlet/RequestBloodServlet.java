@@ -1,6 +1,5 @@
 package servlet;
 
-import dao.StockDAO;
 import dao.DBUtil;
 import model.User;
 
@@ -19,75 +18,44 @@ public class RequestBloodServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
 
-        // ✅ SECURE: Get the logged-in patient from the session
+        // 1. Security Check: Ensure a patient is logged in
         HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("user") == null || !"PATIENT".equals(((User) session.getAttribute("user")).getRole())) {
-            res.sendRedirect("login.jsp?error=Please+login+as+a+patient+to+request+blood.");
+        if (session == null || !"PATIENT".equals(((User) session.getAttribute("user")).getRole())) {
+            res.sendRedirect("login.jsp?error=Please+login+as+a+patient.");
             return;
         }
         User patient = (User) session.getAttribute("user");
 
-        // ✅ SECURE: Get blood group from the session, not the form
-        String bg = patient.getBloodGroup(); 
-        String unitsStr = req.getParameter("units");
-
-        if (unitsStr == null) {
-            req.setAttribute("msg", "Missing number of units.");
-            req.getRequestDispatcher("patient.jsp").forward(req, res);
-            return;
-        }
-
         try {
-            int units = Integer.parseInt(unitsStr);
+            // ✅ MODIFICATION: Get the selected blood group from the form's dropdown
+            String bloodGroup = req.getParameter("blood_group");
+            int units = Integer.parseInt(req.getParameter("units"));
+
             if (units <= 0) {
-                req.setAttribute("msg", "Units must be a positive number.");
-                req.getRequestDispatcher("patient.jsp").forward(req, res);
-                return;
+                 req.setAttribute("msg", "Units must be a positive number.");
+                 req.getRequestDispatcher("patient.jsp").forward(req, res);
+                 return;
             }
 
-            try (Connection con = DBUtil.getConnection()) {
-                con.setAutoCommit(false);
-
-                // ✅ SECURE: Insert the request using the patient ID from the session
-                int requestId;
-                try (PreparedStatement ps = con.prepareStatement(
-                        "INSERT INTO requests(patient_id,blood_group,units_requested,status) VALUES(?,?,?,'PENDING')",
-                        Statement.RETURN_GENERATED_KEYS)) {
-                    ps.setInt(1, patient.getId()); // Use patient ID from session
-                    ps.setString(2, bg);
-                    ps.setInt(3, units);
-                    ps.executeUpdate();
-
-                    try (ResultSet rs = ps.getGeneratedKeys()) {
-                        if (rs.next()) {
-                            requestId = rs.getInt(1);
-                        } else {
-                            con.rollback();
-                            throw new SQLException("Failed to retrieve request ID.");
-                        }
-                    }
-                }
-
-                boolean isFulfilled = StockDAO.takeUnits(bg, units);
-
-                try (PreparedStatement upd = con.prepareStatement(
-                        "UPDATE requests SET status=? WHERE request_id=?")) {
-                    upd.setString(1, isFulfilled ? "FULFILLED" : "PENDING");
-                    upd.setInt(2, requestId);
-                    upd.executeUpdate();
-                }
-
-                con.commit();
+            String sql = "INSERT INTO requests(patient_id, blood_group, units_requested, status, request_date) VALUES(?,?,?,'PENDING',CURDATE())";
+            try (Connection con = DBUtil.getConnection();
+                 PreparedStatement ps = con.prepareStatement(sql)) {
                 
-                req.setAttribute("msg", isFulfilled ? "Request fulfilled successfully! ✅" : "Request is pending due to insufficient stock. ⏳");
-                req.getRequestDispatcher("patient.jsp").forward(req, res);
+                ps.setInt(1, patient.getId());
+                // ✅ MODIFICATION: Use the blood group from the form, not the patient's profile
+                ps.setString(2, bloodGroup);
+                ps.setInt(3, units);
+                ps.executeUpdate();
             }
+            
+            req.setAttribute("msg", "Blood request submitted successfully! It is now pending hospital approval. ✅");
+            req.getRequestDispatcher("patient.jsp").forward(req, res);
 
         } catch (NumberFormatException e) {
             req.setAttribute("msg", "Invalid number format for units.");
             req.getRequestDispatcher("patient.jsp").forward(req, res);
         } catch (Exception e) {
-            throw new ServletException("Error processing blood request", e);
+            throw new ServletException("Error submitting blood request", e);
         }
     }
 }

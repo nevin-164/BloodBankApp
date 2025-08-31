@@ -9,10 +9,9 @@ public class User {
     private String password;
     private String role;
     private String bloodGroup;
+    private String contactNumber; // ✅ ADD THIS
     private Date lastDonationDate;
     private Date nextEligibleDate;
-
-    public User() {}
 
     // --- Getters & Setters ---
 
@@ -28,6 +27,11 @@ public class User {
     public void setRole(String role) { this.role = role; }
     public String getBloodGroup() { return bloodGroup; }
     public void setBloodGroup(String bloodGroup) { this.bloodGroup = bloodGroup; }
+    
+    // ✅ ADD THESE METHODS
+    public String getContactNumber() { return contactNumber; }
+    public void setContactNumber(String contactNumber) { this.contactNumber = contactNumber; }
+    
     public Date getLastDonationDate() { return lastDonationDate; }
     public void setLastDonationDate(Date lastDonationDate) { this.lastDonationDate = lastDonationDate; }
     public Date getNextEligibleDate() { return nextEligibleDate; }
