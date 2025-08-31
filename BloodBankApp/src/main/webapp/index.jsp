@@ -3,32 +3,53 @@
 <head>
     <title>Welcome to PLASMIC</title>
     <style>
-        /* This style is for the preloader */
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars during the preloader */
+        }
+
+        /* --- Preloader Styles --- */
         #preloader {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: #000000; /* Black background */
-            display: flex;
-            justify-content: center;
-            align-items: center;
             z-index: 9999;
+            /* ✅ ADDED: Smooth transition for the fade-out effect */
+            transition: opacity 1s ease-in-out;
         }
-        .loader-video {
-            width: 100%;
-            max-width: 400px;
-            height: auto;
+        #preloader.fade-out {
+            opacity: 0;
         }
 
-        /* This is the style for your main page content */
-        .main-content {
-            font-family: sans-serif;
-            text-align: center;
-            padding-top: 50px;
-            display: none; /* Initially hidden */
+        /* ✅ MODIFIED: Styles to make the video a full-screen background */
+        .loader-video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translateX(-50%) translateY(-50%);
+            object-fit: cover; /* This is the key to making the video cover the screen */
         }
+
+        /* --- Main Content Styles --- */
+        .main-content {
+            padding-top: 50px;
+            /* Initially hidden with zero opacity */
+            opacity: 0;
+            /* ✅ ADDED: Smooth fade-in effect */
+            transition: opacity 1s ease-in-out;
+        }
+        .main-content.visible {
+            opacity: 1;
+        }
+
         h1 { color: #c9302c; }
         .nav { margin-top: 30px; }
         .nav a { margin: 0 15px; text-decoration: none; padding: 12px 25px; border-radius: 5px; color: white; font-size: 16px; font-weight: bold; }
@@ -40,7 +61,6 @@
 
     <div id="preloader">
         <video class="loader-video" autoplay muted loop playsinline>
-            <%-- ✅ FIXED: Using the most reliable path for the video source --%>
             <source src="${pageContext.request.contextPath}/images/loader.mp4" type="video/mp4">
         </video>
     </div>
@@ -59,10 +79,20 @@
             var preloader = document.getElementById('preloader');
             var mainContent = document.getElementById('main-content');
 
+            // Set a timer for 7 seconds
             setTimeout(function() {
-                preloader.style.display = 'none';
-                mainContent.style.display = 'block';
-            }, 7000); // 7 seconds
+                // ✅ MODIFIED: Add the 'fade-out' class to start the transition
+                preloader.classList.add('fade-out');
+                
+                // Make the main content visible after the fade-out starts
+                mainContent.classList.add('visible');
+
+                // Completely remove the preloader from the page after the transition is done (1 second)
+                setTimeout(function() {
+                    preloader.style.display = 'none';
+                }, 1000); // This should match the transition duration in the CSS
+
+            }, 7000); // Your video is 7 seconds long
         });
     </script>
 
