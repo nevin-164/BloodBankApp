@@ -10,15 +10,17 @@
     }
     // Fetch all necessary data for the dashboard display
     Map<String, Integer> currentStock = StockDAO.getAllStock();
-    List<Request> pendingRequests = RequestDAO.getPendingRequests();
-    List<Donation> pendingDonations = DonationDAO.getPendingDonations();
+    // ✅ Fetches patient requests specifically for THIS hospital
+    List<Request> pendingRequests = RequestDAO.getPendingRequestsForHospital(hospital.getId());
+    // ✅ Fetches donation appointments specifically for THIS hospital
+    List<Donation> pendingDonations = DonationDAO.getPendingDonations(hospital.getId()); 
     
     request.setAttribute("pendingRequests", pendingRequests);
     request.setAttribute("pendingDonations", pendingDonations);
 %>
 <html>
 <head>
-    <title>Hospital Dashboard</title>
+    <title>PLASMIC - Hospital Dashboard</title>
     <style>
         body { font-family: sans-serif; margin: 0; padding: 20px; background-color: #f9f9f9; }
         .container { max-width: 1000px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }

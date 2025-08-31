@@ -2,6 +2,7 @@ package servlet;
 
 import dao.DonationDAO;
 import dao.HospitalDAO;
+import dao.UserDAO; // ✅ ADDED: Import UserDAO for the eligibility check
 import model.Donation;
 import model.Hospital;
 import model.User;
@@ -19,7 +20,7 @@ import java.util.List;
 @WebServlet("/donate")
 public class DonationServlet extends HttpServlet {
 
-    // This method shows the donation form
+    // This method shows the donation form or appointment details
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         HttpSession session = req.getSession(false);
@@ -30,12 +31,10 @@ public class DonationServlet extends HttpServlet {
         User donor = (User) session.getAttribute("user");
         
         try {
-            // Check for an existing appointment
             Donation appointment = DonationDAO.getPendingAppointmentForDonor(donor.getId());
             if (appointment != null) {
                 req.setAttribute("appointment", appointment);
             } else {
-                // If no appointment, load hospitals for the request form
                 List<Hospital> hospitals = HospitalDAO.getAllHospitals();
                 req.setAttribute("hospitals", hospitals);
             }
@@ -45,19 +44,31 @@ public class DonationServlet extends HttpServlet {
         }
     }
 
-    // This method processes the appointment request
+ // In your DonationServlet.java, replace the doPost method.
+
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         HttpSession session = req.getSession(false);
         User donor = (User) session.getAttribute("user");
 
         try {
+            // ✅ MODIFIED: Eligibility check now uses the date from the session object
+            java.time.LocalDate today = java.time.LocalDate.now();
+            java.sql.Date nextEligibleDate = donor.getNextEligibleDate(); // Get date from the user object
+
+            if (nextEligibleDate != null && today.isBefore(nextEligibleDate.toLocalDate())) {
+                // If the donor is not eligible, we don't need to do anything here.
+                // The JSP will handle displaying the message.
+                res.sendRedirect(req.getContextPath() + "/donate");
+                return;
+            }
+            
+            // If the donor is eligible, proceed with creating the appointment request.
             int hospitalId = Integer.parseInt(req.getParameter("hospital_id"));
             int units = Integer.parseInt(req.getParameter("units"));
 
             DonationDAO.createDonationRequest(donor.getId(), hospitalId, units);
             
-            // Redirect back to the GET method to refresh the page and show the new appointment
             res.sendRedirect(req.getContextPath() + "/donate?success=Appointment+requested!");
 
         } catch (Exception e) {

@@ -1,6 +1,7 @@
 package servlet;
 
 import dao.RequestDAO;
+import model.Hospital;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -20,11 +21,17 @@ public class DeclineRequestServlet extends HttpServlet {
             res.sendRedirect(req.getContextPath() + "/hospital-login.jsp");
             return;
         }
+        Hospital hospital = (Hospital) session.getAttribute("hospital");
 
         try {
             int requestId = Integer.parseInt(req.getParameter("requestId"));
-            RequestDAO.updateRequestStatus(requestId, "DECLINED");
-            res.sendRedirect(req.getContextPath() + "/hospital-dashboard.jsp?success=Request+" + requestId + "+has+been+declined.");
+
+            // ✅ MODIFIED: This now records the decline action for this specific hospital
+            // without changing the main request's status to 'DECLINED'.
+            RequestDAO.declineRequestForHospital(requestId, hospital.getId());
+
+            res.sendRedirect(req.getContextPath() + "/hospital-dashboard.jsp?success=Request+" + requestId + "+has+been+hidden+from+your+view.");
+
         } catch (Exception e) {
             throw new ServletException("Error declining request", e);
         }

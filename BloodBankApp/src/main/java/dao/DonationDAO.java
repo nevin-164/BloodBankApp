@@ -14,8 +14,8 @@ public class DonationDAO {
                             "WHEN status = 'DECLINED' THEN 'CLOSED' " +
                             "END " +
                             "WHERE user_id = ? AND (status = 'APPROVED' OR status = 'DECLINED')";
-        String insertSql = "INSERT INTO donations (user_id, hospital_id, units, blood_group, status, appointment_date, donation_date) " +
-                           "VALUES (?, ?, ?, (SELECT blood_group FROM users WHERE user_id = ?), 'PENDING', ?, ?)";
+        String insertSql = "INSERT INTO donations (user_id, hospital_id, units, blood_group, status, appointment_date, donation_date, expiry_date) " +
+                           "VALUES (?, ?, ?, (SELECT blood_group FROM users WHERE user_id = ?), 'PENDING', ?, ?, NULL)";
         
         LocalDate today = LocalDate.now();
         Date appointmentDate = Date.valueOf(today.plusDays(2));
@@ -57,29 +57,32 @@ public class DonationDAO {
         return null;
     }
 
-    public static List<Donation> getPendingDonations() throws Exception {
+    public static List<Donation> getPendingDonations(int hospitalId) throws Exception {
         List<Donation> appointments = new ArrayList<>();
         String sql = "SELECT d.donation_id, u.name as donor_name, d.blood_group, d.units, d.appointment_date " +
                      "FROM donations d JOIN users u ON d.user_id = u.user_id " +
-                     "WHERE d.status = 'PENDING' ORDER BY d.appointment_date ASC";
+                     "WHERE d.status = 'PENDING' AND d.hospital_id = ? " +
+                     "ORDER BY d.appointment_date ASC";
         try (Connection con = DBUtil.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Donation appt = new Donation();
-                appt.setDonationId(rs.getInt("donation_id"));
-                appt.setDonorName(rs.getString("donor_name"));
-                appt.setBloodGroup(rs.getString("blood_group"));
-                appt.setUnits(rs.getInt("units"));
-                appt.setAppointmentDate(rs.getDate("appointment_date"));
-                appointments.add(appt);
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, hospitalId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Donation appt = new Donation();
+                    appt.setDonationId(rs.getInt("donation_id"));
+                    appt.setDonorName(rs.getString("donor_name"));
+                    appt.setBloodGroup(rs.getString("blood_group"));
+                    appt.setUnits(rs.getInt("units"));
+                    appt.setAppointmentDate(rs.getDate("appointment_date"));
+                    appointments.add(appt);
+                }
             }
         }
         return appointments;
     }
 
     public static Donation getDonationById(int donationId) throws Exception {
-         String sql = "SELECT blood_group, units FROM donations WHERE donation_id = ?";
+         String sql = "SELECT blood_group, units, user_id FROM donations WHERE donation_id = ?";
          try (Connection con = DBUtil.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, donationId);
@@ -88,6 +91,7 @@ public class DonationDAO {
                     Donation donation = new Donation();
                     donation.setBloodGroup(rs.getString("blood_group"));
                     donation.setUnits(rs.getInt("units"));
+                    donation.setUserId(rs.getInt("user_id"));
                     return donation;
                 }
             }

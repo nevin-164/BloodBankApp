@@ -8,26 +8,32 @@ import jakarta.servlet.ServletException;
 
 public class UserDAO {
 
-    public static User findByEmailAndPassword(String email, String password) throws Exception {
-        String sql = "SELECT * FROM users WHERE email=? AND password=?";
-        try (Connection con = DBUtil.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, email);
-            ps.setString(2, password);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    User user = new User();
-                    user.setId(rs.getInt("user_id"));
-                    user.setName(rs.getString("name"));
-                    user.setEmail(rs.getString("email"));
-                    user.setRole(rs.getString("role"));
-                    user.setBloodGroup(rs.getString("blood_group"));
-                    return user;
-                }
-            }
-        }
-        return null;
-    }
+	// In your UserDAO.java file, replace the findByEmailAndPassword method.
+
+	public static User findByEmailAndPassword(String email, String password) throws Exception {
+	    // ✅ MODIFIED: Added last_donation_date and next_eligible_date to the query
+	    String sql = "SELECT * FROM users WHERE email=? AND password=?";
+	    try (java.sql.Connection con = DBUtil.getConnection();
+	         java.sql.PreparedStatement ps = con.prepareStatement(sql)) {
+	        ps.setString(1, email);
+	        ps.setString(2, password);
+	        try (java.sql.ResultSet rs = ps.executeQuery()) {
+	            if (rs.next()) {
+	                User user = new User();
+	                user.setId(rs.getInt("user_id"));
+	                user.setName(rs.getString("name"));
+	                user.setEmail(rs.getString("email"));
+	                user.setRole(rs.getString("role"));
+	                user.setBloodGroup(rs.getString("blood_group"));
+	                // ✅ ADDED: Fetch and set the donation dates on the user object
+	                user.setLastDonationDate(rs.getDate("last_donation_date"));
+	                user.setNextEligibleDate(rs.getDate("next_eligible_date"));
+	                return user;
+	            }
+	        }
+	    }
+	    return null;
+	}
 
     public static List<User> getAllUsers() throws Exception {
         List<User> userList = new ArrayList<>();
@@ -59,7 +65,6 @@ public class UserDAO {
                     user.setId(rs.getInt("user_id"));
                     user.setName(rs.getString("name"));
                     user.setEmail(rs.getString("email"));
-                    // ✅ FIXED: Removed the lines for phone and address to match your database
                     user.setBloodGroup(rs.getString("blood_group"));
                     user.setRole(rs.getString("role"));
                     return user;
@@ -113,7 +118,6 @@ public class UserDAO {
         }
     }
 
-    // ✅ FIXED: Rewritten to solve the "Unreachable code" compilation error
     public static boolean isEmailExists(String email) throws Exception {
         boolean exists = false;
         String sql = "SELECT COUNT(*) FROM users WHERE email = ?";
@@ -129,34 +133,24 @@ public class UserDAO {
         return exists;
     }
 
- // In UserDAO.java, replace the insert method with this one.
-
- // In your UserDAO.java file, replace the insert method with this one.
-
     public static void insert(String name, String email, String password, String role, String bloodGroup, String contactNumber) throws Exception {
-        // ✅ UPDATED: Added 'contact_number' to the SQL query
         String sql = "INSERT INTO users (name, email, password, role, blood_group, contact_number) VALUES (?, ?, ?, ?, ?, ?)";
-        
-        try (java.sql.Connection con = DBUtil.getConnection();
-             java.sql.PreparedStatement ps = con.prepareStatement(sql)) {
-            
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, name);
             ps.setString(2, email);
             ps.setString(3, password);
             ps.setString(4, role);
-            
             if (bloodGroup != null && !bloodGroup.isEmpty()) {
                 ps.setString(5, bloodGroup);
             } else {
                 ps.setNull(5, java.sql.Types.VARCHAR);
             }
-            
-            // ✅ ADDED: Set the value for the new contact_number parameter
             ps.setString(6, contactNumber);
-            
             ps.executeUpdate();
         }
     }
+
     public static Date getNextEligibleDate(int userId) throws Exception {
         String sql = "SELECT next_eligible_date FROM users WHERE user_id=?";
         try (Connection con = DBUtil.getConnection();
