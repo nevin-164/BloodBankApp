@@ -137,27 +137,30 @@ INSERT INTO users (name, email, password, role, contact_number)
 VALUES ('Admin', 'admin@plasmic.com', 'admin123', 'ADMIN', '1234567890');
 ```
 
-2. Configure Database Connection
-
-Edit src/main/java/dao/DBUtil.java:
+### 2. Configure Database Connection
+Open the src/main/java/dao/DBUtil.java file and update the database URL, username, and password to match your local MySQL setup.
+```
+// Inside DBUtil.java
 private static final String URL = "jdbc:mysql://localhost:3306/bloodbank";
 private static final String USER = "your_mysql_username";
 private static final String PASSWORD = "your_mysql_password";
-3. Build and Deploy
+```
+### 3. Build and Deploy
+Clean and Build: Clean and build your project using your IDE (e.g., in Eclipse, Project > Clean...).
 
-Clean and build your project in your IDE.
+Deploy to Tomcat: Deploy the project to your Apache Tomcat server.
 
-Deploy to Tomcat.
+Start the Server: Start the Tomcat server.
 
-Start the server.
-4. Access the Application
+### 4. Access the Application
+Open your web browser and navigate to: http://localhost:8080/YourAppName/ (the application name might be BloodBankApp or something similar).
 
-Open:
-http://localhost:8080/YourAppName/
-🌟 Future Enhancements
+You will be greeted by the PLASMIC welcome page.
 
-Password Hashing: Use jBcrypt for secure storage.
+### 🌟 Future Enhancements
+- Password Hashing: Implement a library like jBcrypt to securely hash all user and hospital passwords.
 
-Admin Analytics: Charts for donation trends and stock levels.
+- Admin Analytics: Create a visual dashboard for the admin with charts showing donation trends, stock levels over time, etc.
 
-Email Notifications: Jakarta Mail for confirmations and alerts.
+- Email Notifications: Integrate a library like Jakarta Mail to send email confirmations to donors for their appointments.
+---
