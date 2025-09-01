@@ -39,8 +39,9 @@ public class LoginServlet extends HttpServlet {
                     res.sendRedirect("admin.jsp");
                     break;
                 case "DONOR":
-                    // Forward to DonationServlet to load hospital data for the form
-                    req.getRequestDispatcher("/donate").forward(req, res);
+                    // ✅ FIXED: Changed forward to sendRedirect. This creates a new GET request
+                    // to the /donate URL, which correctly triggers the doGet method.
+                    res.sendRedirect(req.getContextPath() + "/donate");
                     break;
                 case "PATIENT":
                     res.sendRedirect("patient.jsp");

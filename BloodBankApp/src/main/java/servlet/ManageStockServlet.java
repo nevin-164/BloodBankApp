@@ -1,6 +1,7 @@
 package servlet;
 
 import dao.StockDAO;
+import model.Hospital; 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -13,12 +14,13 @@ import java.io.IOException;
 @WebServlet("/manage-stock")
 public class ManageStockServlet extends HttpServlet {
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        // Security Check
         HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("hospital") == null) {
+        Hospital hospital = (session != null) ? (Hospital) session.getAttribute("hospital") : null;
+
+        if (hospital == null) {
             response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
             return;
         }
@@ -33,18 +35,20 @@ public class ManageStockServlet extends HttpServlet {
             if (units <= 0) {
                  errorMessage = "Units must be a positive number.";
             } else {
+                 int hospitalId = hospital.getId();
+
                  switch (action) {
                     case "add":
-                        // ✅ FIXED: Changed updateStock to addUnits to match the DAO
-                        StockDAO.addUnits(bloodGroup, units);
+                        StockDAO.addUnits(hospitalId, bloodGroup, units);
                         successMessage = "Successfully added " + units + " units of " + bloodGroup;
                         break;
                     case "remove":
-                        StockDAO.removeStock(bloodGroup, units);
+                        // ✅ FIXED: Changed the method call from removeStock() to takeUnits()
+                        StockDAO.takeUnits(hospitalId, bloodGroup, units);
                         successMessage = "Successfully removed " + units + " units of " + bloodGroup;
                         break;
                     case "set":
-                        StockDAO.setStock(bloodGroup, units);
+                        StockDAO.setStock(hospitalId, bloodGroup, units);
                         successMessage = "Stock for " + bloodGroup + " set to " + units + " units";
                         break;
                     default:
