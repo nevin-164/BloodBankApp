@@ -1,6 +1,7 @@
 package servlet;
 
 import dao.StockDAO;
+import model.Hospital; // ✅ ADDED: Import the Hospital model
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -17,7 +18,10 @@ public class UpdateStockServlet extends HttpServlet {
             throws ServletException, IOException {
 
         HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("hospital") == null) {
+        // ✅ MODIFIED: Get the full Hospital object from the session
+        Hospital hospital = (session != null) ? (Hospital) session.getAttribute("hospital") : null;
+        
+        if (hospital == null) {
             response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
             return;
         }
@@ -26,8 +30,8 @@ public class UpdateStockServlet extends HttpServlet {
             String bloodGroup = request.getParameter("bloodGroup");
             int units = Integer.parseInt(request.getParameter("units"));
 
-            // ✅ FIXED: Changed updateStock to addUnits to match the DAO
-            StockDAO.addUnits(bloodGroup, units);
+            // ✅ FIXED: Pass the logged-in hospital's ID to the DAO method
+            StockDAO.addUnits(hospital.getId(), bloodGroup, units);
             
             response.sendRedirect(request.getContextPath() + "/hospital-dashboard.jsp?success=Stock+updated+successfully!");
 

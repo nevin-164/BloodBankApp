@@ -35,24 +35,53 @@ public class UserDAO {
 	    return null;
 	}
 
-    public static List<User> getAllUsers() throws Exception {
-        List<User> userList = new ArrayList<>();
-        String sql = "SELECT * FROM users WHERE role != 'ADMIN'"; 
-        try (Connection con = DBUtil.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                User user = new User();
-                user.setId(rs.getInt("user_id"));
-                user.setName(rs.getString("name"));
-                user.setEmail(rs.getString("email"));
-                user.setBloodGroup(rs.getString("blood_group"));
-                user.setRole(rs.getString("role"));
-                userList.add(user);
-            }
-        }
-        return userList;
-    }
+	// In UserDAO.java, REMOVE the old getAllUsers() method and ADD these two:
+
+	/**
+	 * Fetches a list of all users with the 'DONOR' role.
+	 */
+	public static java.util.List<User> getAllDonors() throws Exception {
+	    java.util.List<User> donorList = new java.util.ArrayList<>();
+	    String sql = "SELECT * FROM users WHERE role = 'DONOR'"; 
+	    try (java.sql.Connection con = DBUtil.getConnection();
+	         java.sql.PreparedStatement ps = con.prepareStatement(sql);
+	         java.sql.ResultSet rs = ps.executeQuery()) {
+
+	        while (rs.next()) {
+	            User user = new User();
+	            user.setId(rs.getInt("user_id"));
+	            user.setName(rs.getString("name"));
+	            user.setEmail(rs.getString("email"));
+	            user.setBloodGroup(rs.getString("blood_group"));
+	            user.setRole(rs.getString("role"));
+	            donorList.add(user);
+	        }
+	    }
+	    return donorList;
+	}
+
+	/**
+	 * Fetches a list of all users with the 'PATIENT' role.
+	 */
+	public static java.util.List<User> getAllPatients() throws Exception {
+	    java.util.List<User> patientList = new java.util.ArrayList<>();
+	    String sql = "SELECT * FROM users WHERE role = 'PATIENT'"; 
+	    try (java.sql.Connection con = DBUtil.getConnection();
+	         java.sql.PreparedStatement ps = con.prepareStatement(sql);
+	         java.sql.ResultSet rs = ps.executeQuery()) {
+
+	        while (rs.next()) {
+	            User user = new User();
+	            user.setId(rs.getInt("user_id"));
+	            user.setName(rs.getString("name"));
+	            user.setEmail(rs.getString("email"));
+	            user.setBloodGroup(rs.getString("blood_group"));
+	            user.setRole(rs.getString("role"));
+	            patientList.add(user);
+	        }
+	    }
+	    return patientList;
+	}
 
     public static User getUserById(int userId) throws Exception {
         String sql = "SELECT * FROM users WHERE user_id = ?";

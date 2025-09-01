@@ -81,17 +81,21 @@ public class DonationDAO {
         return appointments;
     }
 
-    public static Donation getDonationById(int donationId) throws Exception {
-         String sql = "SELECT blood_group, units, user_id FROM donations WHERE donation_id = ?";
-         try (Connection con = DBUtil.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+ // In your DonationDAO.java file, replace the getDonationById method.
+
+    public static model.Donation getDonationById(int donationId) throws Exception {
+         String sql = "SELECT user_id, hospital_id, blood_group, units FROM donations WHERE donation_id = ?";
+         try (java.sql.Connection con = DBUtil.getConnection();
+              java.sql.PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, donationId);
-            try (ResultSet rs = ps.executeQuery()) {
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    Donation donation = new Donation();
+                    model.Donation donation = new model.Donation();
+                    donation.setUserId(rs.getInt("user_id"));
+                    // ✅ FIXED: Fetch and set the hospital_id
+                    donation.setHospitalId(rs.getInt("hospital_id"));
                     donation.setBloodGroup(rs.getString("blood_group"));
                     donation.setUnits(rs.getInt("units"));
-                    donation.setUserId(rs.getInt("user_id"));
                     return donation;
                 }
             }

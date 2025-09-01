@@ -2,7 +2,7 @@ package servlet;
 
 import dao.DonationDAO;
 import dao.StockDAO;
-import dao.UserDAO; // ✅ ADDED: Import UserDAO
+import dao.UserDAO;
 import model.Donation;
 
 import jakarta.servlet.ServletException;
@@ -13,12 +13,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
-import java.sql.Date; // ✅ ADDED: Import for SQL Date
-import java.time.LocalDate; // ✅ ADDED: Import for LocalDate
+import java.sql.Date;
+import java.time.LocalDate;
 
 @WebServlet("/approve-donation")
 public class ApproveDonationServlet extends HttpServlet {
-    private static final int COOLING_DAYS = 90; // Standard 90-day waiting period
+    private static final int COOLING_DAYS = 90;
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
@@ -33,12 +33,11 @@ public class ApproveDonationServlet extends HttpServlet {
             Donation donation = DonationDAO.getDonationById(donationId);
 
             if (donation != null) {
-                // 1. Update the stock
-                StockDAO.addUnits(donation.getBloodGroup(), donation.getUnits());
-                // 2. Mark the donation as approved
+                // ✅ This now works because the DAO fetches the correct hospitalId
+                StockDAO.addUnits(donation.getHospitalId(), donation.getBloodGroup(), donation.getUnits());
+                
                 DonationDAO.updateDonationStatus(donationId, "APPROVED");
 
-                // ✅ ADDED: Update the donor's eligibility dates
                 LocalDate today = LocalDate.now();
                 Date lastDonationDate = Date.valueOf(today);
                 Date nextEligibleDate = Date.valueOf(today.plusDays(COOLING_DAYS));

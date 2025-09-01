@@ -22,7 +22,6 @@ public class AdminViewUsersServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
 
-        // Security Check: Ensure only a logged-in ADMIN can access this page
         HttpSession session = request.getSession(false);
         if (session == null || !"ADMIN".equals(((User) session.getAttribute("user")).getRole())) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
@@ -30,23 +29,20 @@ public class AdminViewUsersServlet extends HttpServlet {
         }
 
         try {
-            // Fetch the list of users from the DAO
-            List<User> userList = UserDAO.getAllUsers();
+            // ✅ MODIFIED: Fetch two separate lists from the DAO
+            List<User> donorList = UserDAO.getAllDonors();
+            List<User> patientList = UserDAO.getAllPatients();
 
-            // Set the list as an attribute for the JSP to use
-            if (userList == null || userList.isEmpty()) {
-                request.setAttribute("message", "No registered users were found.");
-            } else {
-                request.setAttribute("users", userList);
-            }
+            // Set both lists as attributes for the JSP
+            request.setAttribute("donors", donorList);
+            request.setAttribute("patients", patientList);
 
-            // Forward the request to the JSP page for display
             RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/adminUsers.jsp");
             rd.forward(request, response);
 
         } catch (Exception e) {
             e.printStackTrace();
-            request.setAttribute("errorMessage", "Error: Unable to load user data.");
+            request.setAttribute("errorMessage", "Unable to load users at this time.");
             RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/adminUsers.jsp");
             rd.forward(request, response);
         }

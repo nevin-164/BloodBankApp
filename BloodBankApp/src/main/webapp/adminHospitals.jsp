@@ -22,7 +22,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h2>Hospital Management </h2>
+            <h2>Hospital Management</h2>
             <a href="${pageContext.request.contextPath}/addHospitalForm" class="add-btn">+ Add New Hospital</a>
         </div>
 
@@ -41,13 +41,15 @@
                 <tbody>
                     <c:forEach var="h" items="${hospitals}">
                         <tr>
+                            <%-- ✅ FIXED: Use the consistent 'h.id' property --%>
                             <td>${h.id}</td>
                             <td>${h.name}</td>
                             <td>${h.email}</td>
                             <td>${h.contactNumber}</td>
                             <td>${h.address}</td>
                             <td class="actions-cell">
-                                <a href="${pageContext.request.contextPath}/admin/hospitals/edit?hospitalId=${h.hospitalId}" class="edit-link">Edit</a>
+                                <%-- ✅ FIXED: Corrected the 'href' to point to the EditHospitalServlet --%>
+                                <a href="${pageContext.request.contextPath}/admin/hospitals/edit?hospitalId=${h.id}" class="edit-link">Edit</a>
                                 <a href="${pageContext.request.contextPath}/deleteHospital?hospitalId=${h.id}" 
                                    class="delete-link"
                                    onclick="return confirm('Are you sure you want to delete this hospital?');">Delete</a>
@@ -62,7 +64,6 @@
             <p class="message">No hospitals found.</p>
         </c:if>
 
-        <%-- ✅ ADDED: The "Back to Dashboard" link --%>
         <a href="${pageContext.request.contextPath}/admin.jsp" class="back-link">← Back to Dashboard</a>
     </div>
 </body>

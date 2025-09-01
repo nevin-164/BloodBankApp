@@ -2,17 +2,13 @@
 <%@ page import="model.Hospital, dao.StockDAO, dao.RequestDAO, model.Request, dao.DonationDAO, model.Donation, java.util.Map, java.util.List" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
-    // Security Check: Ensure a hospital is logged in
     Hospital hospital = (Hospital) session.getAttribute("hospital");
     if (hospital == null) {
         response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
         return;
     }
-    // Fetch all necessary data for the dashboard display
-    Map<String, Integer> currentStock = StockDAO.getAllStock();
-    // ✅ Fetches patient requests specifically for THIS hospital
+    Map<String, Integer> currentStock = StockDAO.getStockByHospital(hospital.getId());
     List<Request> pendingRequests = RequestDAO.getPendingRequestsForHospital(hospital.getId());
-    // ✅ Fetches donation appointments specifically for THIS hospital
     List<Donation> pendingDonations = DonationDAO.getPendingDonations(hospital.getId()); 
     
     request.setAttribute("pendingRequests", pendingRequests);
@@ -37,6 +33,10 @@
         .approve-btn { background-color: #28a745; }
         .decline-btn { background-color: #dc3545; }
         .call-btn { background-color: #007bff; }
+        .stock-management-form .form-group { margin-bottom: 10px; }
+        .stock-management-form label { font-weight: bold; }
+        .stock-management-form select, .stock-management-form input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .stock-management-form button { width: 100%; padding: 10px; background-color: #17a2b8; }
     </style>
 </head>
 <body>
@@ -60,6 +60,37 @@
                         </c:forEach>
                     </tbody>
                 </table>
+
+                <%-- ✅ ADDED: This entire section for manual stock management --%>
+                <div class="stock-management-form">
+                    <hr style="margin: 30px 0;">
+                    <h3>Manual Stock Management</h3>
+                    <form action="${pageContext.request.contextPath}/manage-stock" method="post">
+                        <div class="form-group">
+                            <label for="action">Action:</label>
+                            <select id="action" name="action" required>
+                                <option value="add">Add Units</option>
+                                <option value="remove">Remove Units</option>
+                                <option value="set">Set Total Units</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="bloodGroup">Blood Group:</label>
+                            <select id="bloodGroup" name="bloodGroup" required>
+                                <option value="A+">A+</option><option value="A-">A-</option>
+                                <option value="B+">B+</option><option value="B-">B-</option>
+                                <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                                <option value="O+">O+</option><option value="O-">O-</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="units">Units:</label>
+                            <input type="number" id="units" name="units" min="0" required>
+                        </div>
+                        <button type="submit" class="btn">Update Stock</button>
+                    </form>
+                </div>
+
             </div>
 
             <div class="management-panels">
@@ -94,17 +125,14 @@
                     <c:if test="${empty pendingDonations}"><p>No pending donation appointments.</p></c:if>
                     <c:if test="${not empty pendingDonations}">
                         <table>
-                           <thead><tr><th>Donor</th><th>Blood Group</th><th>Units</th><th>Appointment Date</th><th>Action</th></tr></thead>
+                           <thead><tr><th>Donor</th><th>Blood Group</th><th>Units</th><th>Date</th><th>Action</th></tr></thead>
                            <tbody>
                                <c:forEach var="appt" items="${pendingDonations}">
                                    <tr>
-                                       <td>${appt.donorName}</td>
-                                       <td>${appt.bloodGroup}</td>
-                                       <td>${appt.units}</td>
-                                       <td>${appt.appointmentDate}</td>
+                                       <td>${appt.donorName}</td><td>${appt.bloodGroup}</td><td>${appt.units}</td><td>${appt.appointmentDate}</td>
                                        <td class="actions-cell">
-                                           <a href="${pageContext.request.contextPath}/approve-donation?donationId=${appt.donationId}" class="btn approve-btn" onclick="return confirm('Approve this donation and add to stock?');">Approve</a>
-                                           <a href="${pageContext.request.contextPath}/decline-donation?donationId=${appt.donationId}" class="btn decline-btn" onclick="return confirm('Decline this appointment?');">Decline</a>
+                                           <a href="${pageContext.request.contextPath}/approve-donation?donationId=${appt.donationId}" class="btn approve-btn" onclick="return confirm('Approve donation?');">Approve</a>
+                                           <a href="${pageContext.request.contextPath}/decline-donation?donationId=${appt.donationId}" class="btn decline-btn" onclick="return confirm('Decline appointment?');">Decline</a>
                                        </td>
                                    </tr>
                                </c:forEach>
