@@ -136,3 +136,27 @@ CREATE TABLE request_actions (
 INSERT INTO users (name, email, password, role, contact_number)
 VALUES ('Admin', 'admin@plasmic.com', 'admin123', 'ADMIN', '1234567890');
 
+2. Configure Database Connection
+
+Edit src/main/java/dao/DBUtil.java:
+private static final String URL = "jdbc:mysql://localhost:3306/bloodbank";
+private static final String USER = "your_mysql_username";
+private static final String PASSWORD = "your_mysql_password";
+3. Build and Deploy
+
+Clean and build your project in your IDE.
+
+Deploy to Tomcat.
+
+Start the server.
+4. Access the Application
+
+Open:
+http://localhost:8080/YourAppName/
+🌟 Future Enhancements
+
+Password Hashing: Use jBcrypt for secure storage.
+
+Admin Analytics: Charts for donation trends and stock levels.
+
+Email Notifications: Jakarta Mail for confirmations and alerts.
