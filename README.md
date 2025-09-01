@@ -135,6 +135,7 @@ CREATE TABLE request_actions (
 -- Add first admin user
 INSERT INTO users (name, email, password, role, contact_number)
 VALUES ('Admin', 'admin@plasmic.com', 'admin123', 'ADMIN', '1234567890');
+```
 
 2. Configure Database Connection
 
