@@ -24,30 +24,162 @@
 <html>
 <head>
     <title>PLASMIC - Admin Stock Management</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: sans-serif; margin: 0; background-color: #f8f9fa; }
-        .container { padding: 30px; }
-        h2 { text-align: center; color: #c9302c; }
-        .dashboard-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; width: 80%; margin: 20px auto; }
-        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h3 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background-color: #dc3545; color: white; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        select, input { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
-        .message { text-align: center; padding: 10px; border-radius: 5px; font-weight: bold; }
+        /* ✅ NEW: Universal box-sizing and a modern font stack */
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            padding: 30px;
+        }
+        
+        h2 {
+            text-align: center;
+            color: #c9302c;
+        }
+        
+        /* ✅ UPDATED: Layout is now more flexible */
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            max-width: 1200px;
+            margin: 20px auto;
+        }
+        
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h3 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px; /* Prevents iOS auto-zoom */
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .message {
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
         .success { color: #155724; background-color: #d4edda; }
         .error { color: #721c24; background-color: #f8d7da; }
+
+        /* --- ✅ NEW: Media Query for Mobile Devices --- */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            .dashboard-layout {
+                grid-template-columns: 1fr; /* Stack the grid into a single column */
+                gap: 20px;
+            }
+            
+            /* Responsive Table Styling */
+            table, thead, tbody, th, td, tr {
+                display: block;
+            }
+            thead tr {
+                position: absolute; /* Hide original headers */
+                top: -9999px;
+                left: -9999px;
+            }
+            tr {
+                border: 1px solid #ccc;
+                margin-bottom: 10px;
+                border-radius: 5px;
+            }
+            td {
+                border: none;
+                border-bottom: 1px solid #eee;
+                position: relative;
+                padding-left: 50%;
+                text-align: right;
+                min-height: 40px; /* Ensure consistent height */
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+            }
+            td:last-child {
+                border-bottom: 0;
+            }
+            td:before {
+                content: attr(data-label); /* Use data-label for the new "header" */
+                position: absolute;
+                left: 12px;
+                width: 45%;
+                padding-right: 10px;
+                white-space: nowrap;
+                text-align: left;
+                font-weight: bold;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Admin Stock Management</h2>
 
-        <div class="panel">
+        <div class="panel" style="max-width: 600px; margin: 0 auto 20px auto;">
             <form method="GET" action="stock.jsp">
                 <div class="form-group">
                     <label for="hospital_id">Select a Hospital to Manage Stock:</label>
@@ -69,7 +201,10 @@
                         <thead><tr><th>Blood Group</th><th>Units</th></tr></thead>
                         <tbody>
                             <c:forEach var="entry" items="${selectedStock}">
-                                <tr><td>${entry.key}</td><td>${entry.value}</td></tr>
+                                <tr>
+                                    <td data-label="Blood Group">${entry.key}</td>
+                                    <td data-label="Units">${entry.value}</td>
+                                </tr>
                             </c:forEach>
                         </tbody>
                     </table>

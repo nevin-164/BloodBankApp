@@ -10,24 +10,106 @@
 <html>
 <head>
     <title>PLASMIC - Admin Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: sans-serif; margin: 0; background-color: #f8f9fa; }
-        .header { background-color: #343a40; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
-        .header h2 { margin: 0; }
-        .header a { color: #d3d3d3; text-decoration: none; }
-        .header a:hover { color: white; }
-        .container { padding: 30px; }
-        .welcome-banner { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }
-        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-        .dashboard-card { background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; text-align: center; transition: transform 0.2s; }
-        .dashboard-card:hover { transform: translateY(-5px); }
-        .dashboard-card a { text-decoration: none; color: #333; font-size: 18px; font-weight: bold; }
+        /* ✅ NEW: Universal box-sizing and a more modern font stack */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background-color: #f8f9fa;
+        }
+
+        .header {
+            background-color: #343a40;
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 15px;
+        }
+
+        .header h2 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .header a {
+            color: #d3d3d3;
+            text-decoration: none;
+            font-size: 16px;
+        }
+
+        .header a:hover {
+            color: white;
+        }
+
+        .container {
+            padding: 30px;
+        }
+
+        .welcome-banner {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        /* This grid is already responsive thanks to auto-fit! */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .dashboard-card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .dashboard-card a {
+            text-decoration: none;
+            color: #333;
+            font-size: 18px;
+            font-weight: bold;
+        }
         
-        /* ✅ MODIFIED: Increased the width and height for bigger, identical icons */
         .card-icon {
             width: 96px;
             height: 96px;
             margin-bottom: 15px;
+        }
+
+        /* --- ✅ NEW: Media Query for Mobile Refinements --- */
+        @media (max-width: 600px) {
+            .header {
+                padding: 15px;
+                flex-direction: column; /* Stack header items vertically */
+                align-items: flex-start; /* Align to the left */
+            }
+
+            .container {
+                padding: 15px; /* Reduce padding on smaller screens */
+            }
+
+            .welcome-banner, .dashboard-card {
+                padding: 15px; /* Reduce padding on cards and banner */
+            }
         }
     </style>
 </head>

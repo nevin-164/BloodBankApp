@@ -46,28 +46,30 @@ public class DonationServlet extends HttpServlet {
 
  // In your DonationServlet.java, replace the doPost method.
 
+ // In your DonationServlet.java, replace the doPost method.
+
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         HttpSession session = req.getSession(false);
         User donor = (User) session.getAttribute("user");
 
         try {
-            // ✅ MODIFIED: Eligibility check now uses the date from the session object
+            // Eligibility Check remains the same...
             java.time.LocalDate today = java.time.LocalDate.now();
-            java.sql.Date nextEligibleDate = donor.getNextEligibleDate(); // Get date from the user object
+            java.sql.Date nextEligibleDate = UserDAO.getNextEligibleDate(donor.getId());
 
             if (nextEligibleDate != null && today.isBefore(nextEligibleDate.toLocalDate())) {
-                // If the donor is not eligible, we don't need to do anything here.
-                // The JSP will handle displaying the message.
-                res.sendRedirect(req.getContextPath() + "/donate");
+                req.setAttribute("errorMessage", "You are not yet eligible to donate. Your next eligible date is " + nextEligibleDate);
+                doGet(req, res);
                 return;
             }
             
-            // If the donor is eligible, proceed with creating the appointment request.
-            int hospitalId = Integer.parseInt(req.getParameter("hospital_id"));
-            int units = Integer.parseInt(req.getParameter("units"));
+            // ✅ MODIFIED: Read the new date parameter from the form.
+            int hospitalId = Integer.parseInt(req.getParameter("hospitalId"));
+            int units = Integer.parseInt(req.getParameter("units")); // Added back for consistency
+            java.sql.Date appointmentDate = java.sql.Date.valueOf(req.getParameter("appointmentDate"));
 
-            DonationDAO.createDonationRequest(donor.getId(), hospitalId, units);
+            DonationDAO.createDonationRequest(donor.getId(), hospitalId, units, appointmentDate);
             
             res.sendRedirect(req.getContextPath() + "/donate?success=Appointment+requested!");
 

@@ -8,36 +8,41 @@ import java.util.List;
 
 public class DonationDAO {
 
-    public static void createDonationRequest(int userId, int hospitalId, int units) throws Exception {
-        String cleanupSql = "UPDATE donations SET status = CASE " +
-                            "WHEN status = 'APPROVED' THEN 'COMPLETED' " +
-                            "WHEN status = 'DECLINED' THEN 'CLOSED' " +
-                            "END " +
-                            "WHERE user_id = ? AND (status = 'APPROVED' OR status = 'DECLINED')";
-        String insertSql = "INSERT INTO donations (user_id, hospital_id, units, blood_group, status, appointment_date, donation_date, expiry_date) " +
-                           "VALUES (?, ?, ?, (SELECT blood_group FROM users WHERE user_id = ?), 'PENDING', ?, ?, NULL)";
-        
-        LocalDate today = LocalDate.now();
-        Date appointmentDate = Date.valueOf(today.plusDays(2));
-        Date requestDate = Date.valueOf(today);
+	// In your DonationDAO.java file, replace the createDonationRequest method.
 
-        try (Connection con = DBUtil.getConnection()) {
-            try (PreparedStatement psCleanup = con.prepareStatement(cleanupSql)) {
-                psCleanup.setInt(1, userId);
-                psCleanup.executeUpdate();
-            }
-            try (PreparedStatement psInsert = con.prepareStatement(insertSql)) {
-                psInsert.setInt(1, userId);
-                psInsert.setInt(2, hospitalId);
-                psInsert.setInt(3, units);
-                psInsert.setInt(4, userId);
-                psInsert.setDate(5, appointmentDate);
-                psInsert.setDate(6, requestDate);
-                psInsert.executeUpdate();
-            }
-        }
-    }
+	public static void createDonationRequest(int userId, int hospitalId, int units, java.sql.Date appointmentDate) throws Exception {
+	    
+	    // This block automatically clears any old, uncleared notifications for the donor.
+	    String cleanupSql = "UPDATE donations SET status = CASE " +
+	                        "WHEN status = 'APPROVED' THEN 'COMPLETED' " +
+	                        "WHEN status = 'DECLINED' THEN 'CLOSED' " +
+	                        "END " +
+	                        "WHERE user_id = ? AND (status = 'APPROVED' OR status = 'DECLINED')";
 
+	    // ✅ MODIFIED: The SQL now uses the provided appointment date.
+	    String insertSql = "INSERT INTO donations (user_id, hospital_id, units, blood_group, status, appointment_date, donation_date) " +
+	                       "VALUES (?, ?, ?, (SELECT blood_group FROM users WHERE user_id = ?), 'PENDING', ?, ?)";
+	    
+	    java.sql.Date requestDate = java.sql.Date.valueOf(java.time.LocalDate.now());
+
+	    try (java.sql.Connection con = DBUtil.getConnection()) {
+	        try (java.sql.PreparedStatement psCleanup = con.prepareStatement(cleanupSql)) {
+	            psCleanup.setInt(1, userId);
+	            psCleanup.executeUpdate();
+	        }
+
+	        try (java.sql.PreparedStatement psInsert = con.prepareStatement(insertSql)) {
+	            psInsert.setInt(1, userId);
+	            psInsert.setInt(2, hospitalId);
+	            psInsert.setInt(3, units);
+	            psInsert.setInt(4, userId);
+	            // ✅ MODIFIED: Use the appointmentDate from the form.
+	            psInsert.setDate(5, appointmentDate); 
+	            psInsert.setDate(6, requestDate);
+	            psInsert.executeUpdate();
+	        }
+	    }
+	}
     public static Donation getPendingAppointmentForDonor(int userId) throws Exception {
         String sql = "SELECT d.appointment_date, h.name as hospital_name FROM donations d " +
                      "JOIN hospitals h ON d.hospital_id = h.hospital_id " +
