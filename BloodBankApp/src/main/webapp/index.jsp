@@ -31,11 +31,11 @@
         }
 
         /* --- ✅ NEW: Creative Main Content Styles --- */
+        
         .main-content {
-            display: none; /* Initially hidden */
             height: 100vh;
             /* High-quality background image */
-            background-image: url('https://images.pexels.com/photos/6129507/pexels-photo-6129507.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1');
+            background-image: url('<%= request.getContextPath() %>/images/indeximage.png');
             background-size: cover;
             background-position: center;
             /* Flexbox to center the content panel */
@@ -43,21 +43,38 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            opacity: 0;
+            opacity: 0; /* Initially hidden */
             transition: opacity 1s ease;
         }
-        .main-content.visible {
-            opacity: 1;
-        }
+     .main-content.visible {
+    opacity: 1;
+}
+
 
         /* The semi-transparent "glass" panel */
-        .content-panel {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
+.content-panel {
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+    max-width: 600px;
+    width: 90%;
+    text-align: center;
+    opacity: 0;               /* start hidden */
+    transform: translateY(30px); /* slight downward offset */
+    transition: opacity 1s ease, transform 1s ease;
+}
+
+
+.content-panel.visible {
+    opacity: 1;
+    transform: translateY(0); /* slides into place */
+}
+
+
+
 
         h1 {
             color: #c9302c;
@@ -98,6 +115,23 @@
             font-size: 20px;
             color: #333;
         }
+        .skip-btn {
+    position: absolute;
+    bottom: 40px;
+    right: 40px;
+    background: rgba(255,255,255,0.6);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    color: #333;
+    transition: background 0.3s ease;
+}
+.skip-btn:hover {
+    background: rgba(255,255,255,0.8);
+}
+        
     </style>
 </head>
 <body>
@@ -136,6 +170,7 @@ Your browser does not support the video tag.
     </div>
 
     <script>
+    
         window.addEventListener('load', function() {
             var preloader = document.getElementById('preloader');
             var mainContent = document.getElementById('main-content');
@@ -146,12 +181,16 @@ Your browser does not support the video tag.
                 animationEnded = true;
 
                 preloader.classList.add('fade-out');
-                mainContent.style.display = 'flex'; // Change display to flex to activate centering
-                setTimeout(() => mainContent.classList.add('visible'), 50); // Small delay to trigger transition
+                mainContent.style.display = 'flex';
+
+                setTimeout(() => {
+                    mainContent.classList.add('visible');
+                    document.querySelector('.content-panel').classList.add('visible'); // 👈 add this
+                }, 50);
 
                 setTimeout(() => {
                     preloader.style.display = 'none';
-                }, 1000); // Match CSS fade duration
+                }, 1000);
             }
 
             var timer = setTimeout(endAnimation, 7000);
