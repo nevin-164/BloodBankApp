@@ -2,139 +2,167 @@
 <html>
 <head>
     <title>Welcome to PLASMIC</title>
+    
+    <!-- Google Font for a modern look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
     <style>
         body {
-            margin: 0;
-            padding: 0;
             font-family: 'Poppins', sans-serif;
+            margin: 0;
+            overflow: hidden; /* Hide scrollbars during preloader */
         }
 
-        /* Preloader */
+        /* --- Preloader Styles (Kept from your version) --- */
         #preloader {
-            position: fixed; 
-            top: 0; left: 0; 
-            width: 100%; height: 100%;
-            background-color: #000; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            z-index: 9999;
-            opacity: 1;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #000; display: flex; justify-content: center; align-items: center; z-index: 9999;
+            cursor: pointer;
             transition: opacity 1s ease;
         }
-
-        #preloader.hidden {
+        #preloader.fade-out {
             opacity: 0;
-            pointer-events: none;
         }
-
         .loader-video {
-            position: absolute; 
-            top: 50%; left: 50%; 
-            min-width: 100%; min-height: 100%;
-            width: auto; height: auto; 
-            transform: translate(-50%, -50%); 
-            object-fit: cover;
+            position: absolute; top: 50%; left: 50%; min-width: 100%; min-height: 100%;
+            width: auto; height: auto; transform: translate(-50%, -50%); object-fit: cover;
         }
 
-        /* Main content */
+        /* --- ✅ NEW: Creative Main Content Styles --- */
         .main-content {
-            text-align: center; 
-            padding-top: 50px;
-            opacity: 0;   
+            display: none; /* Initially hidden */
+            height: 100vh;
+            /* High-quality background image */
+            background-image: url('https://images.pexels.com/photos/6129507/pexels-photo-6129507.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1');
+            background-size: cover;
+            background-position: center;
+            /* Flexbox to center the content panel */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            opacity: 0;
             transition: opacity 1s ease;
         }
-
         .main-content.visible {
             opacity: 1;
         }
 
-        h1 { color: #c9302c; }
-        .nav { margin-top: 30px; }
-        .nav a { 
-            margin: 0 15px; 
-            text-decoration: none; 
-            padding: 12px 25px; 
-            border-radius: 5px; 
-            color: white; 
-            font-size: 16px; 
-            font-weight: bold; 
+        /* The semi-transparent "glass" panel */
+        .content-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
-        .user-login { background-color: #007bff; }
-        .hospital-login { background-color: #28a745; }
 
-        /* Skip button */
-        .skip-btn {
-            position: absolute; 
-            bottom: 30px; 
-            right: 30px; 
-            padding: 10px 20px; 
-            background: rgba(255,255,255,0.2); 
-            color: #fff; 
-            border: 2px solid #fff; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            font-weight: bold;
-            transition: background 0.3s;
+        h1 {
+            color: #c9302c;
+            font-size: 52px;
+            font-weight: 700;
+            margin: 0;
         }
-        .skip-btn:hover {
-            background: rgba(255,255,255,0.5);
+        p.tagline {
+            color: #6c757d;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+        .portal-grid {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+        .portal-card {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 30px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #333;
+            width: 200px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .portal-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 25px rgba(0,0,0,0.1);
+        }
+        .portal-card .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .portal-card h3 {
+            margin: 0;
+            font-size: 20px;
+            color: #333;
         }
     </style>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-
-    <script>
-        // 👇 Run before page renders
-        if (sessionStorage.getItem("introPlayed")) {
-            document.write('<style>#preloader{display:none}</style>');
-            window.addEventListener("DOMContentLoaded", () => {
-                document.getElementById("main-content").classList.add("visible");
-            });
-        }
-    </script>
 </head>
 <body>
 
-    <!-- Preloader -->
-    <div id="preloader">
-        <video autoplay muted playsinline class="loader-video" onended="showMain()">
-            <source src="https://nevin-164.github.io/BLOODBANKAPPPREVIEW/loader.mp4" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-        <button class="skip-btn" onclick="showMain()">Skip</button>
-    </div>
+  <!-- Preloader -->
 
-    <!-- Main Content -->
+<div id="preloader">
+
+<video autoplay muted playsinline class="loader-video" onended="showMain()">
+
+<source src="https://nevin-164.github.io/BLOODBANKAPPPREVIEW/loader.mp4" type="video/mp4">
+
+Your browser does not support the video tag.
+
+</video>
+
+<button class="skip-btn" onclick="showMain()">Skip</button>
+
+</div>
+
     <div id="main-content" class="main-content">
-        <h1>Welcome to PLASMIC</h1>
-        <p>Your integrated blood bank management solution.</p>
-        <div class="nav">
-            <a href="login.jsp" class="user-login">User Portal</a>
-            <a href="hospital-login.jsp" class="hospital-login">Hospital Portal</a>
+        <div class="content-panel">
+            <h1>PLASMIC</h1>
+            <p class="tagline">Your integrated blood bank management solution.</p>
+            <div class="portal-grid">
+                <a href="login.jsp" class="portal-card">
+                    <div class="icon">👤</div>
+                    <h3>User Portal</h3>
+                </a>
+                <a href="hospital-login.jsp" class="portal-card">
+                    <div class="icon">🏥</div>
+                    <h3>Hospital Portal</h3>
+                </a>
+            </div>
         </div>
     </div>
 
     <script>
-        function showMain() {
-            const preloader = document.getElementById('preloader');
-            const main = document.getElementById('main-content');
+        window.addEventListener('load', function() {
+            var preloader = document.getElementById('preloader');
+            var mainContent = document.getElementById('main-content');
+            var animationEnded = false;
 
-            preloader.classList.add('hidden'); // Fade out
-            setTimeout(() => {
-                preloader.style.display = 'none';
-                main.classList.add('visible'); // Fade in
-            }, 1000);
+            function endAnimation() {
+                if (animationEnded) return;
+                animationEnded = true;
 
-            sessionStorage.setItem("introPlayed", "true");
-        }
+                preloader.classList.add('fade-out');
+                mainContent.style.display = 'flex'; // Change display to flex to activate centering
+                setTimeout(() => mainContent.classList.add('visible'), 50); // Small delay to trigger transition
 
-        window.addEventListener('load', function () {
-            if (!sessionStorage.getItem("introPlayed")) {
-                setTimeout(showMain, 7000); // if not skipped, auto after 7s
+                setTimeout(() => {
+                    preloader.style.display = 'none';
+                }, 1000); // Match CSS fade duration
             }
+
+            var timer = setTimeout(endAnimation, 7000);
+
+            preloader.addEventListener('click', function() {
+                clearTimeout(timer);
+                endAnimation();
+            });
+            
+            // Add a smooth transition effect to preloader
+            preloader.style.transition = 'opacity 1s ease';
         });
     </script>
 
