@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="model.Hospital, dao.StockDAO, dao.RequestDAO, model.Request, dao.DonationDAO, model.Donation, java.util.Map, java.util.List" %>
+<%@ page import="model.*, dao.*, java.util.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     Hospital hospital = (Hospital) session.getAttribute("hospital");
@@ -25,7 +25,7 @@
         .dashboard-layout { display: grid; grid-template-columns: 300px 1fr; gap: 40px; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        .actions-cell { display: flex; gap: 10px; align-items: center; }
+        .actions-cell, .emergency-donor-item { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
         .message { padding: 10px; margin: 20px 0; border-radius: 4px; text-align: center; font-weight: bold; }
         .success { background-color: #dff0d8; color: #3c763d; }
         .error { background-color: #f2dede; color: #a94442; }
@@ -33,6 +33,8 @@
         .approve-btn { background-color: #28a745; }
         .decline-btn { background-color: #dc3545; }
         .call-btn { background-color: #007bff; }
+        .emergency-donors { margin-top: 15px; padding: 10px; background-color: #fff3cd; border-left: 5px solid #ffeeba; border-radius: 5px; }
+        .stock-management-form { margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee; }
         .stock-management-form .form-group { margin-bottom: 10px; }
         .stock-management-form label { font-weight: bold; }
         .stock-management-form select, .stock-management-form input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
@@ -60,37 +62,16 @@
                         </c:forEach>
                     </tbody>
                 </table>
-
-                <%-- ✅ ADDED: This entire section for manual stock management --%>
+                
                 <div class="stock-management-form">
-                    <hr style="margin: 30px 0;">
                     <h3>Manual Stock Management</h3>
                     <form action="${pageContext.request.contextPath}/manage-stock" method="post">
-                        <div class="form-group">
-                            <label for="action">Action:</label>
-                            <select id="action" name="action" required>
-                                <option value="add">Add Units</option>
-                                <option value="remove">Remove Units</option>
-                                <option value="set">Set Total Units</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="bloodGroup">Blood Group:</label>
-                            <select id="bloodGroup" name="bloodGroup" required>
-                                <option value="A+">A+</option><option value="A-">A-</option>
-                                <option value="B+">B+</option><option value="B-">B-</option>
-                                <option value="AB+">AB+</option><option value="AB-">AB-</option>
-                                <option value="O+">O+</option><option value="O-">O-</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="units">Units:</label>
-                            <input type="number" id="units" name="units" min="0" required>
-                        </div>
+                        <div class="form-group"><label>Action:</label><select name="action" required><option value="add">Add</option><option value="remove">Remove</option><option value="set">Set Total</option></select></div>
+                        <div class="form-group"><label>Blood Group:</label><select name="bloodGroup" required><option value="A+">A+</option><option value="A-">A-</option><option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option><option value="AB-">AB-</option><option value="O+">O+</option><option value="O-">O-</option></select></div>
+                        <div class="form-group"><label>Units:</label><input type="number" name="units" min="0" required></div>
                         <button type="submit" class="btn">Update Stock</button>
                     </form>
                 </div>
-
             </div>
 
             <div class="management-panels">
@@ -99,17 +80,39 @@
                     <c:if test="${empty pendingRequests}"><p>No pending blood requests.</p></c:if>
                     <c:if test="${not empty pendingRequests}">
                         <table>
-                           <thead><tr><th>Patient</th><th>Contact</th><th>Blood Group</th><th>Units</th><th>Actions</th></tr></thead>
+                           <thead><tr><th>Patient</th><th>Blood Group</th><th>Units</th><th>Actions</th></tr></thead>
                            <tbody>
                                <c:forEach var="req" items="${pendingRequests}">
                                    <tr>
                                        <td>${req.patientName}</td>
-                                       <td><button class="btn call-btn" onclick="callPatient('${req.patientName}', '${req.patientPhone}')">Call</button></td>
                                        <td>${req.bloodGroup}</td>
                                        <td>${req.units}</td>
-                                       <td class="actions-cell">
-                                           <a href="${pageContext.request.contextPath}/approve-request?requestId=${req.requestId}" class="btn approve-btn">Approve</a>
-                                           <a href="${pageContext.request.contextPath}/decline-request?requestId=${req.requestId}" class="btn decline-btn" onclick="return confirm('Decline this request?');">Decline</a>
+                                       <td>
+                                           <%-- ✅ ADDED BACK: This is the complete emergency donor logic --%>
+                                           <% 
+                                               boolean stockAvailable = StockDAO.isStockAvailable(hospital.getId(), ((Request)pageContext.getAttribute("req")).getBloodGroup(), ((Request)pageContext.getAttribute("req")).getUnits());
+                                               if (stockAvailable) {
+                                           %>
+                                               <a href="approve-request?requestId=${req.requestId}" class="btn approve-btn">Approve from Stock</a>
+                                           <% } else { %>
+                                               <div class="emergency-donors">
+                                                   <strong>Insufficient Stock. Emergency Donors:</strong>
+                                                   <% 
+                                                       List<User> emergencyDonors = EmergencyDonorDAO.getAvailableEmergencyDonors(((Request)pageContext.getAttribute("req")).getBloodGroup());
+                                                       pageContext.setAttribute("emergencyDonors", emergencyDonors);
+                                                   %>
+                                                   <c:if test="${empty emergencyDonors}"><p>None available.</p></c:if>
+                                                   <c:forEach var="ed" items="${emergencyDonors}">
+                                                        <div class="emergency-donor-item">
+                                                            <span>${ed.name} (<button class="btn call-btn" onclick="callPatient('${ed.name}', '${ed.contactNumber}')">Call</button>)</span>
+                                                            <a href="fulfill-via-emergency?requestId=${req.requestId}&donorId=${ed.id}" 
+                                                               class="btn approve-btn"
+                                                               onclick="return confirm('Confirm fulfillment? This will update their eligibility.');">Fulfill</a>
+                                                        </div>
+                                                   </c:forEach>
+                                               </div>
+                                           <% } %>
+                                           <a href="decline-request?requestId=${req.requestId}" class="btn decline-btn">Decline</a>
                                        </td>
                                    </tr>
                                </c:forEach>
@@ -131,8 +134,8 @@
                                    <tr>
                                        <td>${appt.donorName}</td><td>${appt.bloodGroup}</td><td>${appt.units}</td><td>${appt.appointmentDate}</td>
                                        <td class="actions-cell">
-                                           <a href="${pageContext.request.contextPath}/approve-donation?donationId=${appt.donationId}" class="btn approve-btn" onclick="return confirm('Approve donation?');">Approve</a>
-                                           <a href="${pageContext.request.contextPath}/decline-donation?donationId=${appt.donationId}" class="btn decline-btn" onclick="return confirm('Decline appointment?');">Decline</a>
+                                           <a href="approve-donation?donationId=${appt.donationId}" class="btn approve-btn" onclick="return confirm('Approve donation?');">Approve</a>
+                                           <a href="decline-donation?donationId=${appt.donationId}" class="btn decline-btn" onclick="return confirm('Decline appointment?');">Decline</a>
                                        </td>
                                    </tr>
                                </c:forEach>
@@ -143,7 +146,6 @@
             </div>
         </div>
     </div>
-
     <script>
         function callPatient(name, phone) {
             if (phone && phone !== 'null' && phone.trim() !== '') {
