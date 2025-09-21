@@ -20,6 +20,28 @@ public class StockDAO {
         }
         return stockLevels;
     }
+    
+    /**
+     * ✅ MODIFIED: This method now replaces getAllStock().
+     * It returns the TOTAL aggregate stock for each blood type, system-wide.
+     * This respects hospital privacy and is used for the bar graph.
+     */
+    public static Map<String, Integer> getAggregateStock() throws SQLException {
+        Map<String, Integer> aggregateStock = new HashMap<>();
+        // This SQL query now SUMS all units and groups them by blood type.
+        String sql = "SELECT blood_group, SUM(units) AS total_units FROM blood_stock GROUP BY blood_group";
+
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                aggregateStock.put(rs.getString("blood_group"), rs.getInt("total_units"));
+            }
+        }
+        return aggregateStock;
+    }
+
 
     public static void addUnits(int hospitalId, String bloodGroup, int units) throws Exception {
         String sql = "UPDATE blood_stock SET units = units + ? WHERE hospital_id = ? AND blood_group = ?";
@@ -44,11 +66,8 @@ public class StockDAO {
         }
     }
 
-    /**
-     * ✅ FIXED: Rewritten to solve the "Unreachable code" compilation error.
-     */
     public static boolean isStockAvailable(int hospitalId, String bloodGroup, int units) throws SQLException {
-        boolean available = false; // 1. Start with a default value
+        boolean available = false; 
         String sql = "SELECT units FROM blood_stock WHERE hospital_id = ? AND blood_group = ?";
         
         try (Connection con = DBUtil.getConnection();
@@ -58,14 +77,11 @@ public class StockDAO {
             ps.setString(2, bloodGroup);
             
             try (ResultSet rs = ps.executeQuery()) {
-                // 2. Update the value only if a record is found and units are sufficient
                 if (rs.next()) {
                     available = rs.getInt("units") >= units;
                 }
             }
         }
-        
-        // 3. Return the final value at the end of the method
         return available;
     }
     

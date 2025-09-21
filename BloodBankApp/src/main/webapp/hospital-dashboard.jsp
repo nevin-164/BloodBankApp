@@ -1,18 +1,17 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="model.*, dao.*, java.util.*" %>
+<%@ page import="model.*, dao.*, java.util.*, java.util.Set, java.util.HashSet" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
+    // ✅ FIXED: This block now correctly gets the Hospital from the SESSION
+    // and includes a null-check to prevent the error and secure the page.
     Hospital hospital = (Hospital) session.getAttribute("hospital");
-    if (hospital == null) {
-        response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
-        return;
-    }
-    Map<String, Integer> currentStock = StockDAO.getStockByHospital(hospital.getId());
-    List<Request> pendingRequests = RequestDAO.getPendingRequestsForHospital(hospital.getId());
-    List<Donation> pendingDonations = DonationDAO.getPendingDonations(hospital.getId()); 
     
-    request.setAttribute("pendingRequests", pendingRequests);
-    request.setAttribute("pendingDonations", pendingDonations);
+    if (hospital == null) {
+        // If no hospital in session, redirect to login
+        response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
+        return; // Stop the page from processing
+    }
+    // All data loading (StockDAO, RequestDAO, etc.) is handled by the HospitalDashboardServlet.
 %>
 <html>
 <head>
@@ -40,13 +39,20 @@
         .decline-btn { background-color: #dc3545; }
         .call-btn { background-color: #007bff; }
         .emergency-donors { margin-top: 15px; padding: 10px; background-color: #fff3cd; border-left: 5px solid #ffeeba; border-radius: 5px; }
+
+        .analytics-panel {
+            margin-top: 30px; 
+            padding-top: 20px; 
+            border-top: 2px solid #eee;
+        }
+
         .stock-management-form { margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee; }
         .stock-management-form .form-group { margin-bottom: 10px; }
         .stock-management-form label { display: block; margin-bottom: 5px; font-weight: bold; }
         .stock-management-form select, .stock-management-form input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         .stock-management-form button { width: 100%; padding: 10px; background-color: #17a2b8; }
 
-        /* --- ✅ NEW: Media Query for Mobile Devices --- */
+        /* --- Media Query for Mobile Devices --- */
         @media (max-width: 900px) {
             body { padding: 10px; }
             .dashboard-layout {
@@ -108,6 +114,7 @@
 <body>
     <div class="container">
         <div class="header">
+            <%-- This line (111) will now work because 'hospital' is guaranteed to be non-null --%>
             <h2>Welcome, <%= hospital.getName() %></h2>
             <a href="${pageContext.request.contextPath}/logout">Logout</a>
         </div>
@@ -121,7 +128,8 @@
                 <table>
                     <thead><tr><th>Blood Group</th><th>Units</th></tr></thead>
                     <tbody>
-                        <c:forEach var="entry" items="<%= currentStock.entrySet() %>">
+                        <%-- ✅ MODIFIED: Now reads from the 'currentStock' request attribute --%>
+                        <c:forEach var="entry" items="${currentStock}">
                             <tr>
                                 <td data-label="Blood Group">${entry.key}</td>
                                 <td data-label="Units">${entry.value}</td>
@@ -129,6 +137,46 @@
                         </c:forEach>
                     </tbody>
                 </table>
+                
+                <%-- ✅ NEW: Analytics Panel (Feature 2) --%>
+                <div class="analytics-panel">
+                    <h3>Daily Analytics (Avg.)</h3>
+                    <c:if test="${empty allBloodGroups}">
+                        <p>No analytics data available yet.</p>
+                    </c:if>
+                    <c:if test="${not empty allBloodGroups}">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Blood Group</th>
+                                    <th>Avg. Daily Donations</th>
+                                    <th>Avg. Daily Requests</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <c:forEach var="bloodGroup" items="${allBloodGroups}">
+                                    <tr>
+                                        <td data-label="Blood Group">${bloodGroup}</td>
+                                        <%
+                                            // Get the maps from the request
+                                            Map<String, Double> donationsMap = (Map<String, Double>) request.getAttribute("avgDonations");
+                                            Map<String, Double> requestsMap = (Map<String, Double>) request.getAttribute("avgRequests");
+                                            // Get the current blood group from the JSTL loop
+                                            String bg = (String) pageContext.getAttribute("bloodGroup");
+                                            
+                                            // Get values, defaulting to 0.0, and format to 1 decimal place
+                                            String avgDonText = String.format("%.1f", donationsMap.getOrDefault(bg, 0.0));
+                                            String avgReqText = String.format("%.1f", requestsMap.getOrDefault(bg, 0.0));
+                                        %>
+                                        <td data-label="Avg. Donations"><%= avgDonText %></td>
+                                        <td data-label="Avg. Requests"><%= avgReqText %></td>
+                                    </tr>
+                                </c:forEach>
+                            </tbody>
+                        </table>
+                    </c:if>
+                </div>
+                <%-- ✅ END: Analytics Panel --%>
                 
                 <div class="stock-management-form">
                     <h3>Manual Stock Management</h3>
@@ -156,6 +204,7 @@
                                        <td data-label="Units">${req.units}</td>
                                        <td data-label="Actions">
                                            <% 
+                                               // This scriptlet still works because 'hospital' is correctly loaded from the session
                                                boolean stockAvailable = StockDAO.isStockAvailable(hospital.getId(), ((Request)pageContext.getAttribute("req")).getBloodGroup(), ((Request)pageContext.getAttribute("req")).getUnits());
                                                if (stockAvailable) {
                                            %>

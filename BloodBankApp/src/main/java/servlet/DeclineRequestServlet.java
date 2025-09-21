@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.net.URLEncoder; // Import the URL encoder
 
 @WebServlet("/decline-request")
 public class DeclineRequestServlet extends HttpServlet {
@@ -30,10 +31,18 @@ public class DeclineRequestServlet extends HttpServlet {
             // without changing the main request's status to 'DECLINED'.
             RequestDAO.declineRequestForHospital(requestId, hospital.getId());
 
-            res.sendRedirect(req.getContextPath() + "/hospital-dashboard.jsp?success=Request+" + requestId + "+has+been+hidden+from+your+view.");
+            String successMessage = "Request " + requestId + " has been hidden from your view.";
+
+            // ✅ FIX: Redirect to the SERVLET, not the JSP, to fix stale data.
+            res.sendRedirect(req.getContextPath() + "/hospital-dashboard?success=" + URLEncoder.encode(successMessage, "UTF-8"));
 
         } catch (Exception e) {
-            throw new ServletException("Error declining request", e);
+            try {
+                // Also fix the error redirect
+                res.sendRedirect(req.getContextPath() + "/hospital-dashboard?error=" + URLEncoder.encode("Error declining request.", "UTF-8"));
+            } catch (Exception ex) {
+                throw new ServletException("Error declining request", e);
+            }
         }
     }
 }

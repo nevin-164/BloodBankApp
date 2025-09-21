@@ -4,22 +4,20 @@ import model.Donation;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap; 
 import java.util.List;
+import java.util.Map;   
 
 public class DonationDAO {
 
-	// In your DonationDAO.java file, replace the createDonationRequest method.
-
 	public static void createDonationRequest(int userId, int hospitalId, int units, java.sql.Date appointmentDate) throws Exception {
 	    
-	    // This block automatically clears any old, uncleared notifications for the donor.
 	    String cleanupSql = "UPDATE donations SET status = CASE " +
 	                        "WHEN status = 'APPROVED' THEN 'COMPLETED' " +
 	                        "WHEN status = 'DECLINED' THEN 'CLOSED' " +
 	                        "END " +
 	                        "WHERE user_id = ? AND (status = 'APPROVED' OR status = 'DECLINED')";
 
-	    // ✅ MODIFIED: The SQL now uses the provided appointment date.
 	    String insertSql = "INSERT INTO donations (user_id, hospital_id, units, blood_group, status, appointment_date, donation_date) " +
 	                       "VALUES (?, ?, ?, (SELECT blood_group FROM users WHERE user_id = ?), 'PENDING', ?, ?)";
 	    
@@ -36,13 +34,13 @@ public class DonationDAO {
 	            psInsert.setInt(2, hospitalId);
 	            psInsert.setInt(3, units);
 	            psInsert.setInt(4, userId);
-	            // ✅ MODIFIED: Use the appointmentDate from the form.
 	            psInsert.setDate(5, appointmentDate); 
 	            psInsert.setDate(6, requestDate);
 	            psInsert.executeUpdate();
 	        }
 	    }
 	}
+	
     public static Donation getPendingAppointmentForDonor(int userId) throws Exception {
         String sql = "SELECT d.appointment_date, h.name as hospital_name FROM donations d " +
                      "JOIN hospitals h ON d.hospital_id = h.hospital_id " +
@@ -86,8 +84,6 @@ public class DonationDAO {
         return appointments;
     }
 
- // In your DonationDAO.java file, replace the getDonationById method.
-
     public static model.Donation getDonationById(int donationId) throws Exception {
          String sql = "SELECT user_id, hospital_id, blood_group, units FROM donations WHERE donation_id = ?";
          try (java.sql.Connection con = DBUtil.getConnection();
@@ -97,7 +93,6 @@ public class DonationDAO {
                 if (rs.next()) {
                     model.Donation donation = new model.Donation();
                     donation.setUserId(rs.getInt("user_id"));
-                    // ✅ FIXED: Fetch and set the hospital_id
                     donation.setHospitalId(rs.getInt("hospital_id"));
                     donation.setBloodGroup(rs.getString("blood_group"));
                     donation.setUnits(rs.getInt("units"));
@@ -158,5 +153,62 @@ public class DonationDAO {
             }
         }
         return null;
+    }
+
+    public static Map<String, Double> getAverageDailyDonations(int hospitalId) throws SQLException {
+        Map<String, Double> avgDonations = new HashMap<>();
+        String sql = "SELECT blood_group, AVG(units) AS avg_units FROM donations " +
+                     "WHERE hospital_id = ? AND status = 'APPROVED' GROUP BY blood_group";
+        
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setInt(1, hospitalId);
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    avgDonations.put(rs.getString("blood_group"), rs.getDouble("avg_units"));
+                }
+            }
+        }
+        return avgDonations;
+    }
+    
+    public static int getDonationCountForUser(int userId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? AND (status = 'APPROVED' OR status = 'FULFILLED')";
+        int count = 0;
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    count = rs.getInt(1);
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * ✅ NEW: Added for 'Annual Donor' Badge.
+     * Counts approved donations for a user within the past 365 days.
+     */
+    public static int getDonationCountInPastYear(int userId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? " +
+                     "AND (status = 'APPROVED' OR status = 'FULFILLED') " +
+                     "AND donation_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
+        int count = 0;
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    count = rs.getInt(1);
+                }
+            }
+        }
+        return count;
     }
 }

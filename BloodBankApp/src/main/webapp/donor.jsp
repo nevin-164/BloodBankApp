@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate" %>
+<%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate, model.Achievement" %> <%-- ✅ ADDED Achievement --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     User u = (User) session.getAttribute("user");
@@ -25,6 +25,10 @@
     if (isEligible && appointment == null) {
         hospitals = HospitalDAO.getAllHospitals();
     }
+    
+    // --- ✅ NEW: Gamification Data (Phase 2) ---
+    List<Achievement> achievements = dao.AchievementDAO.getAchievementsForUser(u.getId());
+    request.setAttribute("achievements", achievements); // Set for JSTL to use
 %>
 <!DOCTYPE html>
 <html>
@@ -58,6 +62,43 @@
         .emergency-box button:hover { background-color: #a71d2a; }
         .thank-you { background-color: #d1ecf1; border-left: 5px solid #0c5460; }
         .thank-you h3 { color: #0c5460; }
+
+        /* --- ✅ NEW: Achievement Styles --- */
+        .achievements-container {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+        .badge-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .badge {
+            display: flex;
+            align-items: center;
+            background: #f4f4f4;
+            border-radius: 8px;
+            padding: 10px;
+            width: 100%; /* Make badges full width on mobile */
+            max-width: 250px; /* Max width on desktop */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .badge img {
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
+        }
+        .badge-info h4 {
+            margin: 0;
+            font-size: 1rem;
+            color: #333;
+        }
+        .badge-info p {
+            margin: 0;
+            font-size: 0.8rem;
+            color: #777;
+        }
     </style>
 </head>
 <body>
@@ -130,6 +171,32 @@
                 <% } %>
             </div>
         <% } %>
-    </div>
+
+        <%-- ✅ NEW: Achievements Section (Phase 2) --%>
+        <div class="achievements-container">
+            <h3>Your Achievements</h3>
+            
+            <%-- Check if the achievements list from the scriptlet is empty --%>
+            <c:if test="${empty achievements}">
+                <p>Your earned badges will appear here. Go donate to earn your first!</p>
+            </c:if>
+            
+            <c:if test="${not empty achievements}">
+                <div class="badge-list">
+                    <%-- Loop through the achievements and display them --%>
+                    <c:forEach var="ach" items="${achievements}">
+                        <div class="badge">
+                            <img src="${pageContext.request.contextPath}/${ach.badgeIcon}" alt="${ach.badgeName}">
+                            <div class="badge-info">
+                                <h4>${ach.badgeName}</h4>
+                                <p>Earned on: ${ach.dateEarned}</p>
+                            </div>
+                        </div>
+                    </c:forEach>
+                </div>
+            </c:if>
+        </div>
+        
+    </div> <%-- This is the closing .container div --%>
 </body>
 </html>

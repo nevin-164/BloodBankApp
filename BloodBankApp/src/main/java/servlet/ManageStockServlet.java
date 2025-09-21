@@ -63,11 +63,13 @@ public class ManageStockServlet extends HttpServlet {
             errorMessage = "An error occurred while updating the stock.";
         }
 
-        String redirectURL = request.getContextPath() + "/hospital-dashboard.jsp";
+        // ✅ FIX: Redirect to the SERVLET, not the JSP, to fix stale data.
+        String redirectURL = request.getContextPath() + "/hospital-dashboard";
+        
         if (successMessage != null && !successMessage.isEmpty()) {
-            redirectURL += "?success=" + successMessage.replace(" ", "+");
+            redirectURL += "?success=" + java.net.URLEncoder.encode(successMessage, "UTF-8");
         } else if (errorMessage != null && !errorMessage.isEmpty()) {
-            redirectURL += "?error=" + errorMessage.replace(" ", "+");
+            redirectURL += "?error=" + java.net.URLEncoder.encode(errorMessage, "UTF-8");
         }
         
         response.sendRedirect(redirectURL);

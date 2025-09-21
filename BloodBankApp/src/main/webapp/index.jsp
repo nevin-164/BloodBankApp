@@ -78,7 +78,7 @@
         transform: translateY(0);
     }
 
-     h1 {
+        h1 {
         color: #c9302c;
         font-size: 52px;
         font-weight: 700;

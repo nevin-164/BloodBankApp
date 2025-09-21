@@ -8,10 +8,7 @@ import jakarta.servlet.ServletException;
 
 public class UserDAO {
 
-	// In your UserDAO.java file, replace the findByEmailAndPassword method.
-
 	public static User findByEmailAndPassword(String email, String password) throws Exception {
-	    // ✅ MODIFIED: Added last_donation_date and next_eligible_date to the query
 	    String sql = "SELECT * FROM users WHERE email=? AND password=?";
 	    try (java.sql.Connection con = DBUtil.getConnection();
 	         java.sql.PreparedStatement ps = con.prepareStatement(sql)) {
@@ -25,7 +22,6 @@ public class UserDAO {
 	                user.setEmail(rs.getString("email"));
 	                user.setRole(rs.getString("role"));
 	                user.setBloodGroup(rs.getString("blood_group"));
-	                // ✅ ADDED: Fetch and set the donation dates on the user object
 	                user.setLastDonationDate(rs.getDate("last_donation_date"));
 	                user.setNextEligibleDate(rs.getDate("next_eligible_date"));
 	                return user;
@@ -35,11 +31,6 @@ public class UserDAO {
 	    return null;
 	}
 
-	// In UserDAO.java, REMOVE the old getAllUsers() method and ADD these two:
-
-	/**
-	 * Fetches a list of all users with the 'DONOR' role.
-	 */
 	public static java.util.List<User> getAllDonors() throws Exception {
 	    java.util.List<User> donorList = new java.util.ArrayList<>();
 	    String sql = "SELECT * FROM users WHERE role = 'DONOR'"; 
@@ -60,9 +51,6 @@ public class UserDAO {
 	    return donorList;
 	}
 
-	/**
-	 * Fetches a list of all users with the 'PATIENT' role.
-	 */
 	public static java.util.List<User> getAllPatients() throws Exception {
 	    java.util.List<User> patientList = new java.util.ArrayList<>();
 	    String sql = "SELECT * FROM users WHERE role = 'PATIENT'"; 
@@ -115,29 +103,48 @@ public class UserDAO {
         }
     }
 
+    /**
+     * ✅ FIXED: Added the DELETE statement for the 'achievements' table.
+     * This method is now in a full transaction, deleting from all child tables
+     * before deleting from the parent 'users' table.
+     */
     public static void deleteUser(int userId) throws Exception {
+        // ✅ NEW: Added the SQL for the achievements table
+        String deleteAchievementsSQL = "DELETE FROM achievements WHERE user_id = ?";
         String deleteRequestsSQL = "DELETE FROM requests WHERE patient_id = ?";
         String deleteDonationsSQL = "DELETE FROM donations WHERE user_id = ?";
         String deleteUserSQL = "DELETE FROM users WHERE user_id = ?";
+        
         Connection con = null;
         try {
             con = DBUtil.getConnection();
-            con.setAutoCommit(false);
+            con.setAutoCommit(false); // Start transaction
+            
+            // ✅ STEP 1: Delete from achievements (new child table)
+            try (PreparedStatement ps = con.prepareStatement(deleteAchievementsSQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+            // STEP 2: Delete from requests (child table)
             try (PreparedStatement ps = con.prepareStatement(deleteRequestsSQL)) {
                 ps.setInt(1, userId);
                 ps.executeUpdate();
             }
+            // STEP 3: Delete from donations (child table)
             try (PreparedStatement ps = con.prepareStatement(deleteDonationsSQL)) {
                 ps.setInt(1, userId);
                 ps.executeUpdate();
             }
+            // STEP 4: Delete from users (parent table)
             try (PreparedStatement ps = con.prepareStatement(deleteUserSQL)) {
                 ps.setInt(1, userId);
                 ps.executeUpdate();
             }
-            con.commit();
+            
+            con.commit(); // All good, commit changes
+            
         } catch (Exception e) {
-            if (con != null) con.rollback();
+            if (con != null) con.rollback(); // Something went wrong, roll back
             throw new ServletException("Error deleting user", e);
         } finally {
             if (con != null) {

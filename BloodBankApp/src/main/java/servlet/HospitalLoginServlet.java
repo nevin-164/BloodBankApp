@@ -30,8 +30,9 @@ public class HospitalLoginServlet extends HttpServlet {
             HttpSession newSession = req.getSession(true);
             newSession.setAttribute("hospital", h);
             
-            // Redirect to the new hospital dashboard
-            res.sendRedirect(req.getContextPath() + "/hospital-dashboard.jsp");
+            // ✅ MODIFIED: Redirect to the NEW SERVLET's URL, not the JSP file.
+            // This ensures all the data is loaded by our new servlet.
+            res.sendRedirect(req.getContextPath() + "/hospital-dashboard");
 
         } catch (Exception e) {
             throw new ServletException(e);

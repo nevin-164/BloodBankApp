@@ -120,6 +120,15 @@
             margin: 0 10px;
         }
 
+        /* --- ✅ NEW: Style for the public dashboard link to make it stand out --- */
+        .link-group .public-link {
+            display: block; /* Make it a block to take its own line */
+            margin-top: 15px; /* Add some space above it */
+            color: #28a745; /* Give it a different color */
+            font-weight: bold;
+        }
+
+
         /* --- Media Query for Mobile Devices --- */
         @media (max-width: 768px) {
             body {
@@ -174,6 +183,9 @@
             <div class="link-group">
                 <a href="register.jsp">Register</a>
                 <a href="index.jsp">Home</a>
+                
+                <%-- ✅ NEW: Link to the Public Dashboard --%>
+                <a href="${pageContext.request.contextPath}/public-dashboard" class="public-link">View Public Stock Dashboard</a>
             </div>
         </div>
     </div>

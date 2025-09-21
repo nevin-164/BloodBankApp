@@ -1,4 +1,4 @@
-<%@ page import="model.User" %>
+<%@ page import="model.User, model.Request, java.util.List, dao.RequestDAO" %> <%-- ✅ ADDED Request, List, RequestDAO --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     User u = (User) session.getAttribute("user");
@@ -6,6 +6,11 @@
         response.sendRedirect("login.jsp");
         return;
     }
+    
+    // --- ✅ NEW: Real-Time Tracking Data (Phase 2) ---
+    // Get the list of this patient's requests using the new DAO method
+    List<Request> myRequests = dao.RequestDAO.getRequestsByPatientId(u.getId());
+    request.setAttribute("myRequests", myRequests); // Set for JSTL to use
 %>
 <!DOCTYPE html>
 <html>
@@ -103,6 +108,43 @@
             background-color: #f2dede;
             color: #a94442;
         }
+
+        /* --- ✅ NEW: Request Status Table Styles --- */
+        .status-container {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+        .status-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .status-table th, .status-table td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            text-align: left;
+        }
+        .status-table th {
+            background-color: #f4f4f4;
+        }
+        /* Style for the status text */
+        .status-Pending {
+            font-weight: bold;
+            color: #ffc107; /* Yellow */
+        }
+        .status-Approved {
+            font-weight: bold;
+            color: #28a745; /* Green */
+        }
+        .status-Completed {
+            font-weight: bold;
+            color: #007bff; /* Blue */
+        }
+        .status-Declined {
+            font-weight: bold;
+            color: #dc3545; /* Red */
+        }
+
     </style>
 </head>
 <body>
@@ -139,6 +181,41 @@
         <c:if test="${not empty msg}">
             <p class="message ${msg.contains('submitted') ? 'success' : 'error'}">${msg}</p>
         </c:if>
+        
+        
+        <%-- ✅ NEW: Real-Time Tracking Section (Phase 2) --%>
+        <div class="status-container">
+            <h3>My Request Status</h3>
+            
+            <c:if test="${empty myRequests}">
+                <p>You have no active or past blood requests.</p>
+            </c:if>
+            
+            <c:if test="${not empty myRequests}">
+                <table class="status-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Blood Type</th>
+                            <th>Units</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <c:forEach var="req" items="${myRequests}">
+                            <tr>
+                                <td>${req.requestDate}</td>
+                                <td>${req.bloodGroup}</td>
+                                <td>${req.units}</td>
+                                <%-- This displays the new tracking_status, with a matching CSS class --%>
+                                <td class="status-${req.trackingStatus}">${req.trackingStatus}</td>
+                            </tr>
+                        </c:forEach>
+                    </tbody>
+                </table>
+            </c:if>
+        </div>
+        
     </div>
 </body>
 </html>
