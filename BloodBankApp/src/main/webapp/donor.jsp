@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate" %>
+<%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate, model.Achievement, model.Request" %> <%-- ✅ ADDED Request --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     User u = (User) session.getAttribute("user");
@@ -8,58 +8,130 @@
         return;
     }
 
-    // Determine eligibility for a standard donation
     boolean isEligible = true;
-    if (u.getNextEligibleDate() != null && LocalDate.now().isBefore(u.getNextEligibleDate().toLocalDate())) {
+     if (u.getNextEligibleDate() != null && LocalDate.now().isBefore(u.getNextEligibleDate().toLocalDate())) {
         isEligible = false;
     }
-    
-    // Fetch data for the page
-    Donation appointment = DonationDAO.getPendingAppointmentForDonor(u.getId());
-    Date emergencyExpiry = EmergencyDonorDAO.getEmergencyStatusExpiry(u.getId());
+
+     boolean hasDonatedToday = false;
+       if (u.getLastDonationDate() != null &&
+        u.getLastDonationDate().toLocalDate().isEqual(LocalDate.now())) {
+        hasDonatedToday = true;
+     }
+
+    Donation appointment = dao.DonationDAO.getPendingAppointmentForDonor(u.getId());
+    Date emergencyExpiry = dao.EmergencyDonorDAO.getEmergencyStatusExpiry(u.getId());
     List<Hospital> hospitals = null;
     if (isEligible && appointment == null) {
-        hospitals = HospitalDAO.getAllHospitals();
+        hospitals = dao.HospitalDAO.getAllHospitals();
     }
     
-    // ✅ ADDED: Check if the donor made a donation today (likely an emergency one)
-    boolean hasDonatedToday = false;
-    if (u.getLastDonationDate() != null && u.getLastDonationDate().toLocalDate().isEqual(LocalDate.now())) {
-        hasDonatedToday = true;
-    }
+    // --- Gamification Data ---
+     List<Achievement> achievements = dao.AchievementDAO.getAchievementsForUser(u.getId());
+    request.setAttribute("achievements", achievements); // Set for JSTL to use
+    
+    // --- ✅ NEW: Patient Data ---
+    // A Donor can also be a Patient, so we fetch their requests
+    List<Request> myRequests = dao.RequestDAO.getRequestsByPatientId(u.getId());
+    request.setAttribute("myRequests", myRequests);
 %>
 <!DOCTYPE html>
 <html>
 <head>
     <title>PLASMIC - Donor Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display.swap" rel="stylesheet">
     <style>
-        body { font-family: 'Poppins', sans-serif; margin: 0; background-color: #f8f9fa; }
-        .container { max-width: 700px; margin: 40px auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; margin: 0; background-color: #f8f9fa; padding: 20px; }
+        .container { max-width: 700px; width: 100%; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
         h2, h3 { color: #c9302c; }
+        h2 { margin: 0; }
+        a { text-decoration: none; color: #c9302c; font-weight: 600; }
         .status-box { padding: 15px; border-radius: 5px; border-left: 5px solid; margin-bottom: 20px; }
         .eligible { background-color: #d4edda; border-color: #28a745; }
         .ineligible { background-color: #f8d7da; border-color: #dc3545; }
-        .emergency-box { background-color: #fff3cd; border-left: 5px solid #ffc107; padding: 15px; margin-top: 30px; border-radius: 5px; }
-        .emergency-box.thank-you { background-color: #d1ecf1; border-color: #007bff; } /* Blue for thank you */
-        .emergency-box button { background-color: #dc3545; color: white; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 5px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-family: 'Poppins', sans-serif; font-size: 16px; }
+        .form-group button { width: 100%; background-color: #28a745; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: 600; }
+        .form-group button:hover { background-color: #218838; }
+
+        /* Emergency donor section */
+        .emergency-box { padding: 15px; border-radius: 5px; margin-top: 20px; }
+        .emergency-box p { margin: 5px 0; }
+        .emergency-box button { background-color: #c9302c; }
+        .emergency-box button:hover { background-color: #a71d2a; }
+        .thank-you { background-color: #d1ecf1; border-left: 5px solid #0c5460; }
+        .thank-you h3 { color: #0c5460; }
+
+        /* Achievement Styles */
+        .achievements-container, .patient-request-container, .status-container {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+        .badge-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .badge {
+            display: flex;
+            align-items: center;
+            background: #f4f4f4;
+            border-radius: 8px;
+            padding: 10px;
+            width: 100%; /* Make badges full width on mobile */
+            max-width: 250px; /* Max width on desktop */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .badge img {
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
+        }
+        .badge-info h4 { margin: 0; font-size: 1rem; color: #333; }
+        .badge-info p { margin: 0; font-size: 0.8rem; color: #777; }
+        
+        /* ✅ NEW: Patient Request Form */
+        .patient-request-container button {
+            background-color: #d9534f;
+        }
+        .patient-request-container button:hover {
+            background-color: #c9302c;
+        }
+        
+        /* ✅ NEW: Request Status Table Styles */
+        .status-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .status-table th, .status-table td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            text-align: left;
+        }
+        .status-table th {
+            background-color: #f4f4f4;
+        }
+        .status-Pending { font-weight: bold; color: #ffc107; }
+        .status-Approved { font-weight: bold; color: #28a745; }
+        .status-Completed { font-weight: bold; color: #007bff; }
+        .status-Declined { font-weight: bold; color: #dc3545; }
     </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Welcome, <%= u.getName() %> (Donor)</h2>
+            <h2>Welcome, <%= u.getName() %></h2>
             <a href="logout">Logout</a>
         </div>
         
-        <p>Your Blood Group: <strong><%= u.getBloodGroup() %></strong></p>
-
-        <hr>
-
-        <%-- Display a clear eligibility status box --%>
+        <%-- Eligibility Status Box --%>
         <% if (isEligible) { %>
             <div class="status-box eligible">
                 <strong>You are eligible to book a standard donation appointment.</strong>
@@ -72,26 +144,44 @@
             </div>
         <% } %>
 
-        <%-- Logic for showing appointment form or details --%>
+        <%-- Appointment Logic --%>
         <% if (appointment != null) { %>
             <h3>Your Upcoming Appointment</h3>
             <p><strong>Date:</strong> <%= appointment.getAppointmentDate() %></p>
             <p><strong>Hospital:</strong> <%= appointment.getHospitalName() %></p>
         <% } else if (isEligible) { %>
             <h3>Request a Donation Appointment</h3>
-            <form action="donate" method="post">
-                <%-- Your appointment request form here --%>
+            <form action="donate" method="post" class="appointment-form">
+                <div class="form-group">
+                    <label for="hospitalId">Choose a Hospital:</label>
+                    <select id="hospitalId" name="hospitalId" required>
+                         <% for (Hospital h : hospitals) { %>
+                            <option value="<%= h.getId() %>"><%= h.getName() %></option>
+                        <% } %>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="appointmentDate">Preferred Date:</label>
+                    <input type="date" id="appointmentDate" name="appointmentDate" required min="<%= LocalDate.now().plusDays(1) %>" max="<%= LocalDate.now().plusDays(30) %>">
+                </div>
+                <div class="form-group">
+                    <label for="units">Units to Donate:</label>
+                    <input type="number" id="units" name="units" min="1" value="1" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit">Request Appointment</button>
+                </div>
             </form>
         <% } %>
 
-        <%-- ✅ MODIFIED: This section now shows a thank you note if the donor donated today --%>
+        <%-- Emergency Donor Section --%>
         <% if (hasDonatedToday) { %>
             <div class="emergency-box thank-you">
                 <h3>Thank You for Your Donation!</h3>
                 <p>Thank you for responding to an emergency request and donating today. You are a true hero!</p>
             </div>
         <% } else { %>
-            <div class="emergency-box">
+            <div class="emergency-box" style="background-color:#fff3cd; border-left:5px solid #856404;">
                 <h3>Emergency Donor Program</h3>
                 <% if (emergencyExpiry != null) { %>
                     <p>You are an active emergency donor. Thank you for your commitment!</p>
@@ -104,6 +194,86 @@
                 <% } %>
             </div>
         <% } %>
-    </div>
+
+        <%-- Achievements Section (Phase 2) --%>
+        <div class="achievements-container">
+            <h3>Your Achievements</h3>
+            <c:if test="${empty achievements}">
+                <p>Your earned badges will appear here. Go donate to earn your first!</p>
+            </c:if>
+            <c:if test="${not empty achievements}">
+                <div class="badge-list">
+                    <c:forEach var="ach" items="${achievements}">
+                        <div class="badge">
+                            <img src="${pageContext.request.contextPath}/${ach.badgeIcon}" alt="${ach.badgeName}">
+                            <div class="badge-info">
+                                <h4>${ach.badgeName}</h4>
+                                <p>Earned on: ${ach.dateEarned}</p>
+                            </div>
+                        </div>
+                    </c:forEach>
+                </div>
+            </c:if>
+        </div>
+        
+        <%-- ✅ NEW: Patient Request Form --%>
+        <div class="patient-request-container">
+            <h3>Request Blood</h3>
+            <form action="request-blood" method="post">
+                <div class="form-group">
+                    <label for="blood_group">Blood Group Needed:</label>
+                    <select id="blood_group" name="blood_group" required>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="units">Units:</label>
+                    <input type="number" id="units" name="units" min="1" value="1" required>
+                </div>
+                <button type="submit">Submit Request</button>
+            </form>
+            <c:if test="${not empty msg}">
+                <p class="message ${msg.contains('submitted') ? 'success' : 'error'}">${msg}</p>
+            </c:if>
+        </div>
+        
+        <%-- ✅ NEW: Patient Request Status --%>
+        <div class="status-container">
+            <h3>My Request Status</h3>
+            <c:if test="${empty myRequests}">
+                <p>You have no active or past blood requests.</p>
+            </c:if>
+            <c:if test="${not empty myRequests}">
+                <table class="status-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Blood Type</th>
+                            <th>Units</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <c:forEach var="req" items="${myRequests}">
+                            <tr>
+                                <td>${req.requestDate}</td>
+                                <td>${req.bloodGroup}</td>
+                                <td>${req.units}</td>
+                                <td class="status-${req.trackingStatus}">${req.trackingStatus}</td>
+                            </tr>
+                        </c:forEach>
+                    </tbody>
+                </table>
+            </c:if>
+        </div>
+        
+    </div> <%-- This is the closing .container div --%>
 </body>
 </html>

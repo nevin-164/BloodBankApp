@@ -1,6 +1,8 @@
 package servlet;
 
 import dao.UserDAO;
+import dao.AchievementDAO; // ✅ ADDED: Import our new DAO
+import model.User; // ✅ ADDED: Import the User model
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -17,7 +19,6 @@ public class RegisterServlet extends HttpServlet {
         String password = req.getParameter("password");
         String role = req.getParameter("role");
         String bloodGroup = req.getParameter("blood_group");
-        // ✅ ADDED: Get the new contact number from the form
         String contactNumber = req.getParameter("contact_number");
 
         try {
@@ -40,9 +41,39 @@ public class RegisterServlet extends HttpServlet {
                  return;
             }
 
-            // ✅ UPDATED: Pass the new contactNumber to the DAO
+            // 1. Create the user
             UserDAO.insert(name, email, password, role, bloodGroup, contactNumber);
             
+            
+            // --- ✅ NEW: Gamification Logic for Blood Type ---
+            if ("DONOR".equals(role)) {
+                try {
+                    // 2. Get the new user we just created to get their ID
+                    User newUser = UserDAO.findByEmailAndPassword(email, password); 
+                    
+                    if (newUser != null) {
+                        String bg = newUser.getBloodGroup();
+                        
+                        // 3. Check blood type and award badge
+                        if ("O-".equals(bg)) {
+                            AchievementDAO.addAchievement(newUser.getId(), 
+                                                          "Universal Donor", 
+                                                          "images/badges/universal-donor.png");
+                        } else if ("AB+".equals(bg)) {
+                            AchievementDAO.addAchievement(newUser.getId(), 
+                                                          "Universal Recipient", 
+                                                          "images/badges/universal-recipient.png");
+                        }
+                    }
+                } catch (Exception e_ach) {
+                    // If gamification fails, don't stop the registration.
+                    System.err.println("Gamification (Blood Type) Error: " + e_ach.getMessage());
+                }
+            }
+            // --- End Gamification Logic ---
+            
+
+            // 4. Redirect to login
             res.sendRedirect("login.jsp?success=Registration+successful.+Please+login.");
 
         } catch (Exception e) {

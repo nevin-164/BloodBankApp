@@ -8,10 +8,7 @@ import jakarta.servlet.ServletException;
 
 public class UserDAO {
 
-	// In your UserDAO.java file, replace the findByEmailAndPassword method.
-
 	public static User findByEmailAndPassword(String email, String password) throws Exception {
-	    // ✅ MODIFIED: Added last_donation_date and next_eligible_date to the query
 	    String sql = "SELECT * FROM users WHERE email=? AND password=?";
 	    try (java.sql.Connection con = DBUtil.getConnection();
 	         java.sql.PreparedStatement ps = con.prepareStatement(sql)) {
@@ -25,7 +22,6 @@ public class UserDAO {
 	                user.setEmail(rs.getString("email"));
 	                user.setRole(rs.getString("role"));
 	                user.setBloodGroup(rs.getString("blood_group"));
-	                // ✅ ADDED: Fetch and set the donation dates on the user object
 	                user.setLastDonationDate(rs.getDate("last_donation_date"));
 	                user.setNextEligibleDate(rs.getDate("next_eligible_date"));
 	                return user;
@@ -35,11 +31,6 @@ public class UserDAO {
 	    return null;
 	}
 
-	// In UserDAO.java, REMOVE the old getAllUsers() method and ADD these two:
-
-	/**
-	 * Fetches a list of all users with the 'DONOR' role.
-	 */
 	public static java.util.List<User> getAllDonors() throws Exception {
 	    java.util.List<User> donorList = new java.util.ArrayList<>();
 	    String sql = "SELECT * FROM users WHERE role = 'DONOR'"; 
@@ -60,9 +51,6 @@ public class UserDAO {
 	    return donorList;
 	}
 
-	/**
-	 * Fetches a list of all users with the 'PATIENT' role.
-	 */
 	public static java.util.List<User> getAllPatients() throws Exception {
 	    java.util.List<User> patientList = new java.util.ArrayList<>();
 	    String sql = "SELECT * FROM users WHERE role = 'PATIENT'"; 
@@ -115,15 +103,53 @@ public class UserDAO {
         }
     }
 
+    /**
+     * ✅ FINAL VERSION: Deletes from ALL child and grandchild tables.
+     * This fixes all foreign key constraint errors.
+     */
     public static void deleteUser(int userId) throws Exception {
+        // Define all SQL delete statements in the correct order
+        
+        // 1. Delete "grandchildren" (must be first)
+        String deleteInventorySQL = "DELETE FROM blood_inventory WHERE donation_id IN (SELECT donation_id FROM donations WHERE user_id = ?)";
+        String deleteCommentsSQL = "DELETE FROM community_comments WHERE post_id IN (SELECT post_id FROM community_posts WHERE user_id = ?)";
+        
+        // 2. Delete "children"
+        String deleteAchievementsSQL = "DELETE FROM achievements WHERE user_id = ?";
         String deleteRequestsSQL = "DELETE FROM requests WHERE patient_id = ?";
+        String deletePostsSQL = "DELETE FROM community_posts WHERE user_id = ?";
         String deleteDonationsSQL = "DELETE FROM donations WHERE user_id = ?";
+        
+        // 3. Delete "parent"
         String deleteUserSQL = "DELETE FROM users WHERE user_id = ?";
+        
         Connection con = null;
         try {
             con = DBUtil.getConnection();
-            con.setAutoCommit(false);
+            con.setAutoCommit(false); // Start transaction
+            
+            // --- Execute Deletes in Order ---
+            
+            // Step 1: Grandchildren
+            try (PreparedStatement ps = con.prepareStatement(deleteInventorySQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = con.prepareStatement(deleteCommentsSQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+            
+            // Step 2: Children
+            try (PreparedStatement ps = con.prepareStatement(deleteAchievementsSQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
             try (PreparedStatement ps = con.prepareStatement(deleteRequestsSQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = con.prepareStatement(deletePostsSQL)) {
                 ps.setInt(1, userId);
                 ps.executeUpdate();
             }
@@ -131,13 +157,17 @@ public class UserDAO {
                 ps.setInt(1, userId);
                 ps.executeUpdate();
             }
+            
+            // Step 3: Parent
             try (PreparedStatement ps = con.prepareStatement(deleteUserSQL)) {
                 ps.setInt(1, userId);
                 ps.executeUpdate();
             }
-            con.commit();
+            
+            con.commit(); // All good, commit changes
+            
         } catch (Exception e) {
-            if (con != null) con.rollback();
+            if (con != null) con.rollback(); // Something went wrong, roll back
             throw new ServletException("Error deleting user", e);
         } finally {
             if (con != null) {

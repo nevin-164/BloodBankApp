@@ -4,40 +4,43 @@ import model.Donation;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap; 
 import java.util.List;
+import java.util.Map;   
 
 public class DonationDAO {
 
-    public static void createDonationRequest(int userId, int hospitalId, int units) throws Exception {
-        String cleanupSql = "UPDATE donations SET status = CASE " +
-                            "WHEN status = 'APPROVED' THEN 'COMPLETED' " +
-                            "WHEN status = 'DECLINED' THEN 'CLOSED' " +
-                            "END " +
-                            "WHERE user_id = ? AND (status = 'APPROVED' OR status = 'DECLINED')";
-        String insertSql = "INSERT INTO donations (user_id, hospital_id, units, blood_group, status, appointment_date, donation_date, expiry_date) " +
-                           "VALUES (?, ?, ?, (SELECT blood_group FROM users WHERE user_id = ?), 'PENDING', ?, ?, NULL)";
-        
-        LocalDate today = LocalDate.now();
-        Date appointmentDate = Date.valueOf(today.plusDays(2));
-        Date requestDate = Date.valueOf(today);
+	public static void createDonationRequest(int userId, int hospitalId, int units, java.sql.Date appointmentDate) throws Exception {
+	    
+	    String cleanupSql = "UPDATE donations SET status = CASE " +
+	                        "WHEN status = 'APPROVED' THEN 'COMPLETED' " +
+	                        "WHEN status = 'DECLINED' THEN 'CLOSED' " +
+	                        "END " +
+	                        "WHERE user_id = ? AND (status = 'APPROVED' OR status = 'DECLINED')";
 
-        try (Connection con = DBUtil.getConnection()) {
-            try (PreparedStatement psCleanup = con.prepareStatement(cleanupSql)) {
-                psCleanup.setInt(1, userId);
-                psCleanup.executeUpdate();
-            }
-            try (PreparedStatement psInsert = con.prepareStatement(insertSql)) {
-                psInsert.setInt(1, userId);
-                psInsert.setInt(2, hospitalId);
-                psInsert.setInt(3, units);
-                psInsert.setInt(4, userId);
-                psInsert.setDate(5, appointmentDate);
-                psInsert.setDate(6, requestDate);
-                psInsert.executeUpdate();
-            }
-        }
-    }
+	    String insertSql = "INSERT INTO donations (user_id, hospital_id, units, blood_group, status, appointment_date, donation_date) " +
+	                       "VALUES (?, ?, ?, (SELECT blood_group FROM users WHERE user_id = ?), 'PENDING', ?, ?)";
+	    
+	    java.sql.Date requestDate = java.sql.Date.valueOf(java.time.LocalDate.now());
 
+	    try (java.sql.Connection con = DBUtil.getConnection()) {
+	        try (java.sql.PreparedStatement psCleanup = con.prepareStatement(cleanupSql)) {
+	            psCleanup.setInt(1, userId);
+	            psCleanup.executeUpdate();
+	        }
+
+	        try (java.sql.PreparedStatement psInsert = con.prepareStatement(insertSql)) {
+	            psInsert.setInt(1, userId);
+	            psInsert.setInt(2, hospitalId);
+	            psInsert.setInt(3, units);
+	            psInsert.setInt(4, userId);
+	            psInsert.setDate(5, appointmentDate); 
+	            psInsert.setDate(6, requestDate);
+	            psInsert.executeUpdate();
+	        }
+	    }
+	}
+	
     public static Donation getPendingAppointmentForDonor(int userId) throws Exception {
         String sql = "SELECT d.appointment_date, h.name as hospital_name FROM donations d " +
                      "JOIN hospitals h ON d.hospital_id = h.hospital_id " +
@@ -57,11 +60,15 @@ public class DonationDAO {
         return null;
     }
 
+    /**
+     * ✅ MODIFIED: Now fetches the 'status' column.
+     * Also fetches appointments that are 'PENDING' OR 'PRE-SCREEN_PASSED'.
+     */
     public static List<Donation> getPendingDonations(int hospitalId) throws Exception {
         List<Donation> appointments = new ArrayList<>();
-        String sql = "SELECT d.donation_id, u.name as donor_name, d.blood_group, d.units, d.appointment_date " +
+        String sql = "SELECT d.donation_id, u.name as donor_name, d.blood_group, d.units, d.appointment_date, d.status " +
                      "FROM donations d JOIN users u ON d.user_id = u.user_id " +
-                     "WHERE d.status = 'PENDING' AND d.hospital_id = ? " +
+                     "WHERE (d.status = 'PENDING' OR d.status = 'PRE-SCREEN_PASSED') AND d.hospital_id = ? " +
                      "ORDER BY d.appointment_date ASC";
         try (Connection con = DBUtil.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -74,14 +81,13 @@ public class DonationDAO {
                     appt.setBloodGroup(rs.getString("blood_group"));
                     appt.setUnits(rs.getInt("units"));
                     appt.setAppointmentDate(rs.getDate("appointment_date"));
+                    appt.setStatus(rs.getString("status")); // ✅ ADDED THIS LINE
                     appointments.add(appt);
                 }
             }
         }
         return appointments;
     }
-
- // In your DonationDAO.java file, replace the getDonationById method.
 
     public static model.Donation getDonationById(int donationId) throws Exception {
          String sql = "SELECT user_id, hospital_id, blood_group, units FROM donations WHERE donation_id = ?";
@@ -92,7 +98,6 @@ public class DonationDAO {
                 if (rs.next()) {
                     model.Donation donation = new model.Donation();
                     donation.setUserId(rs.getInt("user_id"));
-                    // ✅ FIXED: Fetch and set the hospital_id
                     donation.setHospitalId(rs.getInt("hospital_id"));
                     donation.setBloodGroup(rs.getString("blood_group"));
                     donation.setUnits(rs.getInt("units"));
@@ -153,5 +158,92 @@ public class DonationDAO {
             }
         }
         return null;
+    }
+
+    public static Map<String, Double> getAverageDailyDonations(int hospitalId) throws SQLException {
+        Map<String, Double> avgDonations = new HashMap<>();
+        String sql = "SELECT blood_group, AVG(units) AS avg_units FROM donations " +
+                     "WHERE hospital_id = ? AND status = 'APPROVED' GROUP BY blood_group";
+        
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setInt(1, hospitalId);
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    avgDonations.put(rs.getString("blood_group"), rs.getDouble("avg_units"));
+                }
+            }
+        }
+        return avgDonations;
+    }
+    
+    public static int getDonationCountForUser(int userId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? AND (status = 'APPROVED' OR status = 'FULFILLED')";
+        int count = 0;
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    count = rs.getInt(1);
+                }
+            }
+        }
+        return count;
+    }
+
+    public static int getDonationCountInPastYear(int userId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? " +
+                     "AND (status = 'APPROVED' OR status = 'FULFILLED') " +
+                     "AND donation_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
+        int count = 0;
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    count = rs.getInt(1);
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * ✅ NEW: Added for Phase 4 (Admin CRM).
+     * Fetches the complete donation history for a single user.
+     */
+    public static List<Donation> getDonationsByUserId(int userId) throws SQLException {
+        List<Donation> history = new ArrayList<>();
+        // Join with hospitals to get the hospital's name for each donation
+        String sql = "SELECT d.*, h.name as hospital_name FROM donations d " +
+                     "JOIN hospitals h ON d.hospital_id = h.hospital_id " +
+                     "WHERE d.user_id = ? " +
+                     "ORDER BY d.appointment_date DESC";
+        
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setInt(1, userId);
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Donation donation = new Donation();
+                    donation.setDonationId(rs.getInt("donation_id"));
+                    donation.setHospitalName(rs.getString("hospital_name"));
+                    donation.setBloodGroup(rs.getString("blood_group"));
+                    donation.setUnits(rs.getInt("units"));
+                    donation.setAppointmentDate(rs.getDate("appointment_date"));
+                    donation.setStatus(rs.getString("status"));
+                    // We can add more fields to the model if needed, e.g., donation_date
+                    history.add(donation);
+                }
+            }
+        }
+        return history;
     }
 }

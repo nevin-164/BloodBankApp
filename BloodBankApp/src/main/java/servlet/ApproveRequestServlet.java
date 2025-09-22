@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder; // Import the URL encoder
 
 @WebServlet("/approve-request")
 public class ApproveRequestServlet extends HttpServlet {
@@ -29,24 +30,39 @@ public class ApproveRequestServlet extends HttpServlet {
             Request bloodRequest = RequestDAO.getRequestById(requestId);
 
             if (bloodRequest != null) {
-                // ✅ MODIFIED: Check stock availability AT THIS SPECIFIC HOSPITAL
+                // Check stock availability (this uses our new hybrid method)
                 boolean stockAvailable = StockDAO.isStockAvailable(hospital.getId(), bloodRequest.getBloodGroup(), bloodRequest.getUnits());
 
                 if (stockAvailable) {
-                    // ✅ MODIFIED: Deduct stock FROM THIS SPECIFIC HOSPITAL
-                    StockDAO.takeUnits(hospital.getId(), bloodRequest.getBloodGroup(), bloodRequest.getUnits());
+                    // 1. ✅ MODIFIED: Call the new, smarter hybrid method
+                    StockDAO.useInventoryBags(hospital.getId(), bloodRequest.getBloodGroup(), bloodRequest.getUnits());
                     
-                    // Mark the central request as fulfilled
+                    // 2. Mark the central request as fulfilled
                     RequestDAO.updateRequestStatus(requestId, "FULFILLED");
-                    res.sendRedirect(req.getContextPath() + "/hospital-dashboard.jsp?success=Request+approved+and+stock+updated!");
+                    
+                    // 3. (Analytics): Log this action
+                    RequestDAO.logRequestAction(requestId, hospital.getId(), "APPROVED"); 
+                    
+                    // 4. (Patient Tracking): Update the patient-facing tracking status
+                    RequestDAO.updateTrackingStatus(requestId, "Approved");
+                    
+                    // 5. (Stale Data Fix): Redirect to the SERVLET
+                    res.sendRedirect(req.getContextPath() + "/hospital-dashboard?success=" + URLEncoder.encode("Request approved and stock updated!", "UTF-8"));
                 } else {
-                    res.sendRedirect(req.getContextPath() + "/hospital-dashboard.jsp?error=Not+enough+stock+to+approve+request.");
+                    // Also fix the redirect on the error case.
+                    res.sendRedirect(req.getContextPath() + "/hospital-dashboard?error=" + URLEncoder.encode("Not enough stock to approve request.", "UTF-8"));
                 }
             } else {
-                res.sendRedirect(req.getContextPath() + "/hospital-dashboard.jsp?error=Request+not+found.");
+                // Also fix the redirect on the error case.
+                res.sendRedirect(req.getContextPath() + "/hospital-dashboard?error=" + URLEncoder.encode("Request not found.", "UTF-8"));
             }
         } catch (Exception e) {
-            throw new ServletException("Error approving request", e);
+            // Let's send the error to the dashboard page as well
+            try {
+                res.sendRedirect(req.getContextPath() + "/hospital-dashboard?error=" + URLEncoder.encode("Error approving request.", "UTF-8"));
+            } catch (Exception ex) {
+                throw new ServletException("Error approving request", e);
+            }
         }
     }
 }
