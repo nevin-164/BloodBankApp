@@ -1,14 +1,12 @@
-# Use Tomcat 9 with Java 11
-FROM tomcat:9.0-jdk11
+# Step 1: Build WAR inside container
+FROM maven:3.9.6-eclipse-temurin-17 as builder
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests
 
-# Remove default ROOT app
+# Step 2: Deploy WAR into Tomcat
+FROM tomcat:10.1-jdk17
 RUN rm -rf /usr/local/tomcat/webapps/ROOT
-
-# Copy your WAR into Tomcat (adjust name if needed)
-COPY target/BloodBankApp.war /usr/local/tomcat/webapps/ROOT.war
-
-# Expose Render's port
+COPY --from=builder /app/target/*.war /usr/local/tomcat/webapps/ROOT.war
 EXPOSE 8080
-
-# Start Tomcat
-CMD ["catalina.sh", "run"]
