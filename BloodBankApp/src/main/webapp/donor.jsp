@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate, model.Achievement" %> <%-- ✅ ADDED Achievement --%>
+<%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate, model.Achievement, model.Request" %> <%-- ✅ ADDED Request --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     User u = (User) session.getAttribute("user");
@@ -9,26 +9,31 @@
     }
 
     boolean isEligible = true;
-    if (u.getNextEligibleDate() != null && LocalDate.now().isBefore(u.getNextEligibleDate().toLocalDate())) {
+     if (u.getNextEligibleDate() != null && LocalDate.now().isBefore(u.getNextEligibleDate().toLocalDate())) {
         isEligible = false;
     }
 
-    boolean hasDonatedToday = false;
-    if (u.getLastDonationDate() != null &&
+     boolean hasDonatedToday = false;
+       if (u.getLastDonationDate() != null &&
         u.getLastDonationDate().toLocalDate().isEqual(LocalDate.now())) {
         hasDonatedToday = true;
-    }
+     }
 
-    Donation appointment = DonationDAO.getPendingAppointmentForDonor(u.getId());
-    Date emergencyExpiry = EmergencyDonorDAO.getEmergencyStatusExpiry(u.getId());
+    Donation appointment = dao.DonationDAO.getPendingAppointmentForDonor(u.getId());
+    Date emergencyExpiry = dao.EmergencyDonorDAO.getEmergencyStatusExpiry(u.getId());
     List<Hospital> hospitals = null;
     if (isEligible && appointment == null) {
-        hospitals = HospitalDAO.getAllHospitals();
+        hospitals = dao.HospitalDAO.getAllHospitals();
     }
     
-    // --- ✅ NEW: Gamification Data (Phase 2) ---
-    List<Achievement> achievements = dao.AchievementDAO.getAchievementsForUser(u.getId());
+    // --- Gamification Data ---
+     List<Achievement> achievements = dao.AchievementDAO.getAchievementsForUser(u.getId());
     request.setAttribute("achievements", achievements); // Set for JSTL to use
+    
+    // --- ✅ NEW: Patient Data ---
+    // A Donor can also be a Patient, so we fetch their requests
+    List<Request> myRequests = dao.RequestDAO.getRequestsByPatientId(u.getId());
+    request.setAttribute("myRequests", myRequests);
 %>
 <!DOCTYPE html>
 <html>
@@ -37,7 +42,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display.swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'Poppins', sans-serif; margin: 0; background-color: #f8f9fa; padding: 20px; }
@@ -63,8 +68,8 @@
         .thank-you { background-color: #d1ecf1; border-left: 5px solid #0c5460; }
         .thank-you h3 { color: #0c5460; }
 
-        /* --- ✅ NEW: Achievement Styles --- */
-        .achievements-container {
+        /* Achievement Styles */
+        .achievements-container, .patient-request-container, .status-container {
             margin-top: 30px;
             padding-top: 20px;
             border-top: 2px solid #eee;
@@ -89,22 +94,40 @@
             height: 40px;
             margin-right: 10px;
         }
-        .badge-info h4 {
-            margin: 0;
-            font-size: 1rem;
-            color: #333;
+        .badge-info h4 { margin: 0; font-size: 1rem; color: #333; }
+        .badge-info p { margin: 0; font-size: 0.8rem; color: #777; }
+        
+        /* ✅ NEW: Patient Request Form */
+        .patient-request-container button {
+            background-color: #d9534f;
         }
-        .badge-info p {
-            margin: 0;
-            font-size: 0.8rem;
-            color: #777;
+        .patient-request-container button:hover {
+            background-color: #c9302c;
         }
+        
+        /* ✅ NEW: Request Status Table Styles */
+        .status-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .status-table th, .status-table td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            text-align: left;
+        }
+        .status-table th {
+            background-color: #f4f4f4;
+        }
+        .status-Pending { font-weight: bold; color: #ffc107; }
+        .status-Approved { font-weight: bold; color: #28a745; }
+        .status-Completed { font-weight: bold; color: #007bff; }
+        .status-Declined { font-weight: bold; color: #dc3545; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Welcome, <%= u.getName() %> (Donor)</h2>
+            <h2>Welcome, <%= u.getName() %></h2>
             <a href="logout">Logout</a>
         </div>
         
@@ -172,18 +195,14 @@
             </div>
         <% } %>
 
-        <%-- ✅ NEW: Achievements Section (Phase 2) --%>
+        <%-- Achievements Section (Phase 2) --%>
         <div class="achievements-container">
             <h3>Your Achievements</h3>
-            
-            <%-- Check if the achievements list from the scriptlet is empty --%>
             <c:if test="${empty achievements}">
                 <p>Your earned badges will appear here. Go donate to earn your first!</p>
             </c:if>
-            
             <c:if test="${not empty achievements}">
                 <div class="badge-list">
-                    <%-- Loop through the achievements and display them --%>
                     <c:forEach var="ach" items="${achievements}">
                         <div class="badge">
                             <img src="${pageContext.request.contextPath}/${ach.badgeIcon}" alt="${ach.badgeName}">
@@ -194,6 +213,64 @@
                         </div>
                     </c:forEach>
                 </div>
+            </c:if>
+        </div>
+        
+        <%-- ✅ NEW: Patient Request Form --%>
+        <div class="patient-request-container">
+            <h3>Request Blood</h3>
+            <form action="request-blood" method="post">
+                <div class="form-group">
+                    <label for="blood_group">Blood Group Needed:</label>
+                    <select id="blood_group" name="blood_group" required>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="units">Units:</label>
+                    <input type="number" id="units" name="units" min="1" value="1" required>
+                </div>
+                <button type="submit">Submit Request</button>
+            </form>
+            <c:if test="${not empty msg}">
+                <p class="message ${msg.contains('submitted') ? 'success' : 'error'}">${msg}</p>
+            </c:if>
+        </div>
+        
+        <%-- ✅ NEW: Patient Request Status --%>
+        <div class="status-container">
+            <h3>My Request Status</h3>
+            <c:if test="${empty myRequests}">
+                <p>You have no active or past blood requests.</p>
+            </c:if>
+            <c:if test="${not empty myRequests}">
+                <table class="status-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Blood Type</th>
+                            <th>Units</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <c:forEach var="req" items="${myRequests}">
+                            <tr>
+                                <td>${req.requestDate}</td>
+                                <td>${req.bloodGroup}</td>
+                                <td>${req.units}</td>
+                                <td class="status-${req.trackingStatus}">${req.trackingStatus}</td>
+                            </tr>
+                        </c:forEach>
+                    </tbody>
+                </table>
             </c:if>
         </div>
         

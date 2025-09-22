@@ -66,14 +66,14 @@
         padding: 40px;
         border-radius: 20px;
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-        max-width: 600px;
+        max-width: 700px; /* ✅ UPDATED: Made wider for 3 cards */
         width: 90%;
         text-align: center;
         opacity: 0;
         transform: translateY(30px);
         transition: opacity 1s ease, transform 1s ease;
     }
-     .content-panel.visible {
+      .content-panel.visible {
         opacity: 1;
         transform: translateY(0);
     }
@@ -93,6 +93,7 @@
         display: flex;
         gap: 20px;
         justify-content: center;
+        flex-wrap: wrap; /* ✅ ADDED: Allows cards to wrap nicely if needed */
     }
     .portal-card {
         background-color: #f8f9fa;
@@ -177,6 +178,11 @@
                   <div class="icon">🏥</div>
                   <h3>Hospital Portal</h3>
               </a>
+              <%-- ✅ NEW: Link to Community Forum --%>
+              <a href="${pageContext.request.contextPath}/community" class="portal-card">
+                  <div class="icon">💬</div>
+                  <h3>Community Forum</h3>
+              </a>
           </div>
       </div>
   </div>
@@ -217,5 +223,16 @@
       preloader.addEventListener('click', showMain);
   </script>
 
-</body>
+  <script type="text/javascript">
+  var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+  (function(){
+  var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+  s1.async=true;
+  s1.src='https://embed.tawk.to/68d03e1d5510221925d154c5/1j5mn58ug';
+  s1.charset='UTF-8';
+  s1.setAttribute('crossorigin','*');
+  s0.parentNode.insertBefore(s1,s0);
+  })();
+  </script>
+  </body>
 </html>

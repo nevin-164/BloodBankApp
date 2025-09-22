@@ -30,23 +30,23 @@ public class ApproveRequestServlet extends HttpServlet {
             Request bloodRequest = RequestDAO.getRequestById(requestId);
 
             if (bloodRequest != null) {
-                // Check stock availability AT THIS SPECIFIC HOSPITAL
+                // Check stock availability (this uses our new hybrid method)
                 boolean stockAvailable = StockDAO.isStockAvailable(hospital.getId(), bloodRequest.getBloodGroup(), bloodRequest.getUnits());
 
                 if (stockAvailable) {
-                    // 1. Deduct stock FROM THIS SPECIFIC HOSPITAL
-                    StockDAO.takeUnits(hospital.getId(), bloodRequest.getBloodGroup(), bloodRequest.getUnits());
+                    // 1. ✅ MODIFIED: Call the new, smarter hybrid method
+                    StockDAO.useInventoryBags(hospital.getId(), bloodRequest.getBloodGroup(), bloodRequest.getUnits());
                     
                     // 2. Mark the central request as fulfilled
                     RequestDAO.updateRequestStatus(requestId, "FULFILLED");
                     
-                    // 3. (Analytics): Log this action so analytics can find it.
+                    // 3. (Analytics): Log this action
                     RequestDAO.logRequestAction(requestId, hospital.getId(), "APPROVED"); 
                     
-                    // 4. ✅ NEW (Patient Tracking): Update the patient-facing tracking status
+                    // 4. (Patient Tracking): Update the patient-facing tracking status
                     RequestDAO.updateTrackingStatus(requestId, "Approved");
                     
-                    // 5. (Stale Data Fix): Redirect to the SERVLET, not the JSP.
+                    // 5. (Stale Data Fix): Redirect to the SERVLET
                     res.sendRedirect(req.getContextPath() + "/hospital-dashboard?success=" + URLEncoder.encode("Request approved and stock updated!", "UTF-8"));
                 } else {
                     // Also fix the redirect on the error case.

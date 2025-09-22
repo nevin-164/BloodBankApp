@@ -178,13 +178,16 @@
                     <label for="password">Password:</label>
                     <input type="password" id="password" name="password" required>
                 </div>
+
+                <%-- ✅ NEW: This hidden field holds the redirect URL from the previous page --%>
+                <input type="hidden" name="redirectURL" value="${param.redirectURL}">
+
                 <button type="submit">Login</button>
             </form>
             <div class="link-group">
                 <a href="register.jsp">Register</a>
                 <a href="index.jsp">Home</a>
                 
-                <%-- ✅ NEW: Link to the Public Dashboard --%>
                 <a href="${pageContext.request.contextPath}/public-dashboard" class="public-link">View Public Stock Dashboard</a>
             </div>
         </div>

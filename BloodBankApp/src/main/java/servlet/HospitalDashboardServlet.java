@@ -3,7 +3,9 @@ package servlet; // ⚠️ Make sure this package name matches yours!
 import dao.DonationDAO;
 import dao.RequestDAO;
 import dao.StockDAO;
+import dao.BloodInventoryDAO; // ✅ ADDED: New DAO for inventory
 import model.Hospital;
+import model.BloodInventory; // ✅ ADDED: New model for inventory
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -17,7 +19,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.List;
-import model.Request; // Import all necessary models and daos
+import model.Request;
 import model.Donation;
 
 @WebServlet("/hospital-dashboard") // This is the new URL for the dashboard
@@ -51,6 +53,9 @@ public class HospitalDashboardServlet extends HttpServlet {
             // Create a combined set of all blood groups
             Set<String> allBloodGroups = new HashSet<>(avgDonations.keySet());
             allBloodGroups.addAll(avgRequests.keySet());
+            
+            // ✅ NEW: Data for "Pending Inventory" Panel (Phase 4)
+            List<BloodInventory> pendingBags = BloodInventoryDAO.getPendingBagsByHospital(hospitalId);
 
             // 3. Set all data as REQUEST attributes for the JSP
             request.setAttribute("currentStock", currentStock);
@@ -59,9 +64,7 @@ public class HospitalDashboardServlet extends HttpServlet {
             request.setAttribute("avgDonations", avgDonations);
             request.setAttribute("avgRequests", avgRequests);
             request.setAttribute("allBloodGroups", allBloodGroups);
-            
-            // The JSP also needs the hospital object for the inline scriptlet
-            // (We could also just let it read from the session, but this is cleaner)
+            request.setAttribute("pendingBags", pendingBags); // ✅ ADDED: New attribute
             request.setAttribute("hospital", hospital); 
 
             // 4. Forward to the JSP (the "View")

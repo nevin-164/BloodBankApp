@@ -1,7 +1,7 @@
 package servlet;
 
 import dao.StockDAO;
-import model.Hospital; // ✅ ADDED: Import the Hospital model
+import model.Hospital; 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.net.URLEncoder; // ✅ ADDED
 
 @WebServlet("/update-stock")
 public class UpdateStockServlet extends HttpServlet {
@@ -18,7 +19,6 @@ public class UpdateStockServlet extends HttpServlet {
             throws ServletException, IOException {
 
         HttpSession session = request.getSession(false);
-        // ✅ MODIFIED: Get the full Hospital object from the session
         Hospital hospital = (session != null) ? (Hospital) session.getAttribute("hospital") : null;
         
         if (hospital == null) {
@@ -26,20 +26,32 @@ public class UpdateStockServlet extends HttpServlet {
             return;
         }
 
+        String successMessage = "";
+        String errorMessage = "";
+        String redirectURL = request.getContextPath() + "/hospital-dashboard"; // ✅ FIX: Point to the servlet
+
         try {
             String bloodGroup = request.getParameter("bloodGroup");
             int units = Integer.parseInt(request.getParameter("units"));
 
-            // ✅ FIXED: Pass the logged-in hospital's ID to the DAO method
             StockDAO.addUnits(hospital.getId(), bloodGroup, units);
             
-            response.sendRedirect(request.getContextPath() + "/hospital-dashboard.jsp?success=Stock+updated+successfully!");
+            successMessage = "Stock updated successfully!";
 
         } catch (NumberFormatException e) {
-            response.sendRedirect(request.getContextPath() + "/hospital-dashboard.jsp?error=Invalid+number+of+units.");
+            errorMessage = "Invalid number of units.";
         } catch (Exception e) {
             e.printStackTrace();
-            response.sendRedirect(request.getContextPath() + "/hospital-dashboard.jsp?error=An+error+occurred.");
+            errorMessage = "An error occurred.";
         }
+
+        // Add the success/error message and redirect
+        if (successMessage != null && !successMessage.isEmpty()) {
+            redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
+        } else if (errorMessage != null && !errorMessage.isEmpty()) {
+            redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
+        }
+        
+        response.sendRedirect(redirectURL);
     }
 }

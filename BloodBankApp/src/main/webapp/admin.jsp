@@ -1,3 +1,4 @@
+<%@ page contentType="text/html" pageEncoding="UTF-8" %>
 <%@ page import="model.User" %>
 <%
     User u = (User) session.getAttribute("user");
@@ -11,18 +12,18 @@
 <head>
     <title>PLASMIC - Admin Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        /* ✅ NEW: Universal box-sizing and a more modern font stack */
         * {
             box-sizing: border-box;
         }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
             margin: 0;
             background-color: #f8f9fa;
         }
-
         .header {
             background-color: #343a40;
             color: white;
@@ -30,29 +31,24 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap; /* Allow wrapping on small screens */
+            flex-wrap: wrap;
             gap: 15px;
         }
-
         .header h2 {
             margin: 0;
             font-size: 22px;
         }
-
         .header a {
             color: #d3d3d3;
             text-decoration: none;
             font-size: 16px;
         }
-
         .header a:hover {
             color: white;
         }
-
         .container {
             padding: 30px;
         }
-
         .welcome-banner {
             background-color: white;
             padding: 20px;
@@ -60,14 +56,11 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 30px;
         }
-
-        /* This grid is already responsive thanks to auto-fit! */
         .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
         }
-
         .dashboard-card {
             background-color: white;
             border-radius: 8px;
@@ -76,39 +69,32 @@
             text-align: center;
             transition: transform 0.2s, box-shadow 0.2s;
         }
-
         .dashboard-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
-
         .dashboard-card a {
             text-decoration: none;
             color: #333;
             font-size: 18px;
             font-weight: bold;
         }
-        
         .card-icon {
             width: 96px;
             height: 96px;
             margin-bottom: 15px;
         }
-
-        /* --- ✅ NEW: Media Query for Mobile Refinements --- */
         @media (max-width: 600px) {
             .header {
                 padding: 15px;
-                flex-direction: column; /* Stack header items vertically */
-                align-items: flex-start; /* Align to the left */
+                flex-direction: column;
+                align-items: flex-start;
             }
-
             .container {
-                padding: 15px; /* Reduce padding on smaller screens */
+                padding: 15px;
             }
-
             .welcome-banner, .dashboard-card {
-                padding: 15px; /* Reduce padding on cards and banner */
+                padding: 15px;
             }
         }
     </style>
@@ -116,7 +102,7 @@
 <body>
     <div class="header">
         <h2>PLASMIC Admin Dashboard</h2>
-        <a href="<%=request.getContextPath()%>/logout">Logout</a>
+        <a href="<%= request.getContextPath() %>/logout">Logout</a>
     </div>
 
     <div class="container">
@@ -126,11 +112,14 @@
         </div>
 
         <div class="dashboard-grid">
+            
+            <%-- ✅ NEW: Link to Donor CRM --%>
             <div class="dashboard-card">
-                <img src="<%= request.getContextPath() %>/images/icon-users.png" alt="Manage Users" class="card-icon">
+                <img src="<%= request.getContextPath() %>/images/icon-users.png" alt="Donor CRM" class="card-icon">
                 <br>
-                <a href="<%= request.getContextPath() %>/admin/users">Manage Users</a>
+                <a href="${pageContext.request.contextPath}/admin/donor-list">Donor Management (CRM)</a>
             </div>
+            
             <div class="dashboard-card">
                 <img src="<%= request.getContextPath() %>/images/icon-hospitals.png" alt="Manage Hospitals" class="card-icon">
                 <br>
@@ -146,6 +135,12 @@
                 <br>
                 <a href="alerts.jsp">View Expiry Alerts</a>
             </div>
+             <div class="dashboard-card">
+                <img src="<%= request.getContextPath() %>/images/icon-users.png" alt="Manage Users" class="card-icon">
+                <br>
+                <a href="<%= request.getContextPath() %>/admin/users">Manage Users</a>
+            </div>
+            
         </div>
     </div>
 </body>

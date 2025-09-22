@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
+import java.net.URLEncoder; // ✅ ADDED
 
 @WebServlet("/manage-stock")
 public class ManageStockServlet extends HttpServlet {
@@ -37,19 +38,19 @@ public class ManageStockServlet extends HttpServlet {
             } else {
                  int hospitalId = hospital.getId();
 
+                 // ✅ MODIFIED: This switch now WORKS with our new hybrid DAO
                  switch (action) {
                     case "add":
                         StockDAO.addUnits(hospitalId, bloodGroup, units);
-                        successMessage = "Successfully added " + units + " units of " + bloodGroup;
+                        successMessage = "Successfully added " + units + " manual units of " + bloodGroup;
                         break;
                     case "remove":
-                        // ✅ FIXED: Changed the method call from removeStock() to takeUnits()
                         StockDAO.takeUnits(hospitalId, bloodGroup, units);
-                        successMessage = "Successfully removed " + units + " units of " + bloodGroup;
+                        successMessage = "Successfully removed " + units + " manual units of " + bloodGroup;
                         break;
                     case "set":
                         StockDAO.setStock(hospitalId, bloodGroup, units);
-                        successMessage = "Stock for " + bloodGroup + " set to " + units + " units";
+                        successMessage = "Manual stock for " + bloodGroup + " set to " + units + " units";
                         break;
                     default:
                         errorMessage = "Invalid action specified.";
@@ -63,13 +64,13 @@ public class ManageStockServlet extends HttpServlet {
             errorMessage = "An error occurred while updating the stock.";
         }
 
-        // ✅ FIX: Redirect to the SERVLET, not the JSP, to fix stale data.
+        // This redirect to the servlet is correct.
         String redirectURL = request.getContextPath() + "/hospital-dashboard";
         
         if (successMessage != null && !successMessage.isEmpty()) {
-            redirectURL += "?success=" + java.net.URLEncoder.encode(successMessage, "UTF-8");
+            redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
         } else if (errorMessage != null && !errorMessage.isEmpty()) {
-            redirectURL += "?error=" + java.net.URLEncoder.encode(errorMessage, "UTF-8");
+            redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
         }
         
         response.sendRedirect(redirectURL);

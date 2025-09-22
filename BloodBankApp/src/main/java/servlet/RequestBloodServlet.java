@@ -12,50 +12,74 @@ import jakarta.servlet.ServletException;
 
 import java.io.IOException;
 import java.sql.*;
+import java.net.URLEncoder; // ✅ ADDED: For redirect messages
 
 @WebServlet("/request-blood")
 public class RequestBloodServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
 
-        // 1. Security Check: Ensure a patient is logged in
+        // 1. ✅ FIX: Modified Security Check
         HttpSession session = req.getSession(false);
-        if (session == null || !"PATIENT".equals(((User) session.getAttribute("user")).getRole())) {
-            res.sendRedirect("login.jsp?error=Please+login+as+a+patient.");
+        if (session == null || session.getAttribute("user") == null) {
+            // User isn't logged in at all
+            res.sendRedirect(req.getContextPath() + "/login.jsp?error=" + URLEncoder.encode("Please login to make a request.", "UTF-8"));
             return;
         }
-        User patient = (User) session.getAttribute("user");
+        User user = (User) session.getAttribute("user");
+
+        // Now, we allow BOTH Donors and Patients
+        if (!"DONOR".equals(user.getRole()) && !"PATIENT".equals(user.getRole())) {
+            res.sendRedirect(req.getContextPath() + "/login.jsp?error=" + URLEncoder.encode("Only donors or patients can make requests.", "UTF-8"));
+            return;
+        }
+        
+        // 2. ✅ FIX: Determine where to redirect the user
+        // Donors go back to their servlet, Patients go back to their JSP
+        String redirectURL = "patient.jsp"; // Default for patients
+        if ("DONOR".equals(user.getRole())) {
+            redirectURL = req.getContextPath() + "/donate"; // This is the Donor's dashboard servlet
+        }
+
+        String successMessage = "";
+        String errorMessage = "";
 
         try {
-            // ✅ MODIFICATION: Get the selected blood group from the form's dropdown
             String bloodGroup = req.getParameter("blood_group");
             int units = Integer.parseInt(req.getParameter("units"));
 
             if (units <= 0) {
-                 req.setAttribute("msg", "Units must be a positive number.");
-                 req.getRequestDispatcher("patient.jsp").forward(req, res);
+                 errorMessage = "Units must be a positive number.";
+                 // 3. ✅ FIX: Use sendRedirect with an error message
+                 res.sendRedirect(redirectURL + "?error=" + URLEncoder.encode(errorMessage, "UTF-8"));
                  return;
             }
 
-            String sql = "INSERT INTO requests(patient_id, blood_group, units_requested, status, request_date) VALUES(?,?,?,'PENDING',CURDATE())";
+            // 4. ✅ FIX: Added the new 'tracking_status' column to the SQL
+            String sql = "INSERT INTO requests(patient_id, blood_group, units_requested, status, request_date, tracking_status) VALUES(?,?,?,'PENDING',CURDATE(),'Pending')";
             try (Connection con = DBUtil.getConnection();
                  PreparedStatement ps = con.prepareStatement(sql)) {
                 
-                ps.setInt(1, patient.getId());
-                // ✅ MODIFICATION: Use the blood group from the form, not the patient's profile
+                ps.setInt(1, user.getId()); // Use the generic 'user' object
                 ps.setString(2, bloodGroup);
                 ps.setInt(3, units);
                 ps.executeUpdate();
             }
             
-            req.setAttribute("msg", "Blood request submitted successfully! It is now pending hospital approval. ✅");
-            req.getRequestDispatcher("patient.jsp").forward(req, res);
+            successMessage = "Blood request submitted successfully! It is now pending.";
 
         } catch (NumberFormatException e) {
-            req.setAttribute("msg", "Invalid number format for units.");
-            req.getRequestDispatcher("patient.jsp").forward(req, res);
+            errorMessage = "Invalid number format for units.";
         } catch (Exception e) {
+            errorMessage = "Error submitting blood request.";
             throw new ServletException("Error submitting blood request", e);
+        }
+        
+        // 5. ✅ FIX: Final redirect logic
+        if (!errorMessage.isEmpty()) {
+            res.sendRedirect(redirectURL + "?error=" + URLEncoder.encode(errorMessage, "UTF-8"));
+        } else {
+            res.sendRedirect(redirectURL + "?success=" + URLEncoder.encode(successMessage, "UTF-8"));
         }
     }
 }

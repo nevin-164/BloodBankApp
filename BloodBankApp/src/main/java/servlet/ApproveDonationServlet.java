@@ -4,7 +4,9 @@ import dao.DonationDAO;
 import dao.StockDAO;
 import dao.UserDAO;
 import dao.AchievementDAO;
+import dao.BloodInventoryDAO; // ✅ ADDED: New inventory DAO
 import model.Donation;
+import model.BloodInventory; // ✅ ADDED: New inventory model
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -21,6 +23,7 @@ import java.time.LocalDate;
 @WebServlet("/approve-donation")
 public class ApproveDonationServlet extends HttpServlet {
     private static final int COOLING_DAYS = 90;
+    private static final int BLOOD_EXPIRY_DAYS = 42; // Standard expiry for RBCs
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
@@ -37,22 +40,43 @@ public class ApproveDonationServlet extends HttpServlet {
         try {
             donationId = Integer.parseInt(req.getParameter("donationId"));
             Donation donation = DonationDAO.getDonationById(donationId);
+            LocalDate today = LocalDate.now();
 
             if (donation != null) {
-                // 1. Add stock to this hospital
-                StockDAO.addUnits(donation.getHospitalId(), donation.getBloodGroup(), donation.getUnits());
                 
-                // 2. Mark the donation as approved
+                // --- ✅ MODIFIED: Advanced Inventory Logic (Phase 4) ---
+                // We no longer call StockDAO.addUnits().
+                // Instead, we create a new, trackable bag for each unit.
+                
+                // 1. Calculate donation and expiry dates
+                Date dateDonated = Date.valueOf(today);
+                Date expiryDate = Date.valueOf(today.plusDays(BLOOD_EXPIRY_DAYS));
+                
+                // 2. Save a new bag record for EACH unit donated
+                for (int i = 0; i < donation.getUnits(); i++) {
+                    BloodInventory newBag = new BloodInventory();
+                    newBag.setDonationId(donationId);
+                    newBag.setHospitalId(donation.getHospitalId());
+                    newBag.setBloodGroup(donation.getBloodGroup());
+                    newBag.setDateDonated(dateDonated);
+                    newBag.setExpiryDate(expiryDate);
+                    newBag.setInventoryStatus("PENDING_TEST"); // Set initial status
+                    
+                    BloodInventoryDAO.addBag(newBag); 
+                }
+                // --- End of New Logic ---
+
+                
+                // 3. Mark the donation as approved
                 DonationDAO.updateDonationStatus(donationId, "APPROVED");
 
-                // 3. Update the donor's eligibility dates
-                LocalDate today = LocalDate.now();
+                // 4. Update the donor's eligibility dates
                 Date lastDonationDate = Date.valueOf(today);
                 Date nextEligibleDate = Date.valueOf(today.plusDays(COOLING_DAYS));
                 UserDAO.updateDonationDates(donation.getUserId(), lastDonationDate, nextEligibleDate);
                 
                 
-                // --- ✅ Gamification Logic ---
+                // --- Gamification Logic (Still works!) ---
                 try {
                     int userId = donation.getUserId();
                     int totalDonations = 0; 
@@ -88,9 +112,6 @@ public class ApproveDonationServlet extends HttpServlet {
                     boolean hasAnnualBadge = AchievementDAO.hasAchievement(userId, "Annual Donor");
                     if (!hasAnnualBadge) {
                         int yearlyDonations = DonationDAO.getDonationCountInPastYear(userId);
-                        
-                        // ✅ FIX: Changed from >= 1 to >= 2
-                        // This ensures it's only awarded on the 2nd (or more) donation in a year.
                         if (yearlyDonations >= 2) { 
                             AchievementDAO.addAchievement(userId, "Annual Donor", "images/badges/annual.png");
                         }
@@ -102,7 +123,7 @@ public class ApproveDonationServlet extends HttpServlet {
                 // --- End Gamification Logic ---
                 
                 
-                successMessage = "Donation approved and stock updated!";
+                successMessage = "Donation approved and inventory updated!";
             } else {
                 errorMessage = "Donation not found.";
             }

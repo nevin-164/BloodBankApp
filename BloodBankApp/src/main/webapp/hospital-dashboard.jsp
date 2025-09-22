@@ -1,9 +1,8 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="model.*, dao.*, java.util.*, java.util.Set, java.util.HashSet" %>
+<%@ page import="model.*, dao.*, java.util.*, java.util.Set, java.util.HashSet, model.BloodInventory" %> <%-- ✅ ADDED BloodInventory --%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
-    // ✅ FIXED: This block now correctly gets the Hospital from the SESSION
-    // and includes a null-check to prevent the error and secure the page.
+    // The main security check and all data loading is now done in the HospitalDashboardServlet.
     Hospital hospital = (Hospital) session.getAttribute("hospital");
     
     if (hospital == null) {
@@ -40,7 +39,8 @@
         .call-btn { background-color: #007bff; }
         .emergency-donors { margin-top: 15px; padding: 10px; background-color: #fff3cd; border-left: 5px solid #ffeeba; border-radius: 5px; }
 
-        .analytics-panel {
+        /* ✅ UPDATED: Added new panel style */
+        .analytics-panel, .pending-inventory-panel, .donation-management { 
             margin-top: 30px; 
             padding-top: 20px; 
             border-top: 2px solid #eee;
@@ -114,7 +114,6 @@
 <body>
     <div class="container">
         <div class="header">
-            <%-- This line (111) will now work because 'hospital' is guaranteed to be non-null --%>
             <h2>Welcome, <%= hospital.getName() %></h2>
             <a href="${pageContext.request.contextPath}/logout">Logout</a>
         </div>
@@ -128,7 +127,6 @@
                 <table>
                     <thead><tr><th>Blood Group</th><th>Units</th></tr></thead>
                     <tbody>
-                        <%-- ✅ MODIFIED: Now reads from the 'currentStock' request attribute --%>
                         <c:forEach var="entry" items="${currentStock}">
                             <tr>
                                 <td data-label="Blood Group">${entry.key}</td>
@@ -138,7 +136,6 @@
                     </tbody>
                 </table>
                 
-                <%-- ✅ NEW: Analytics Panel (Feature 2) --%>
                 <div class="analytics-panel">
                     <h3>Daily Analytics (Avg.)</h3>
                     <c:if test="${empty allBloodGroups}">
@@ -158,13 +155,9 @@
                                     <tr>
                                         <td data-label="Blood Group">${bloodGroup}</td>
                                         <%
-                                            // Get the maps from the request
                                             Map<String, Double> donationsMap = (Map<String, Double>) request.getAttribute("avgDonations");
                                             Map<String, Double> requestsMap = (Map<String, Double>) request.getAttribute("avgRequests");
-                                            // Get the current blood group from the JSTL loop
                                             String bg = (String) pageContext.getAttribute("bloodGroup");
-                                            
-                                            // Get values, defaulting to 0.0, and format to 1 decimal place
                                             String avgDonText = String.format("%.1f", donationsMap.getOrDefault(bg, 0.0));
                                             String avgReqText = String.format("%.1f", requestsMap.getOrDefault(bg, 0.0));
                                         %>
@@ -176,7 +169,6 @@
                         </table>
                     </c:if>
                 </div>
-                <%-- ✅ END: Analytics Panel --%>
                 
                 <div class="stock-management-form">
                     <h3>Manual Stock Management</h3>
@@ -204,7 +196,6 @@
                                        <td data-label="Units">${req.units}</td>
                                        <td data-label="Actions">
                                            <% 
-                                               // This scriptlet still works because 'hospital' is correctly loaded from the session
                                                boolean stockAvailable = StockDAO.isStockAvailable(hospital.getId(), ((Request)pageContext.getAttribute("req")).getBloodGroup(), ((Request)pageContext.getAttribute("req")).getUnits());
                                                if (stockAvailable) {
                                            %>
@@ -236,8 +227,6 @@
                     </c:if>
                 </div>
 
-                <hr style="margin: 30px 0;">
-
                 <div class="donation-management">
                     <h3>Pending Donation Appointments</h3>
                     <c:if test="${empty pendingDonations}"><p>No pending donation appointments.</p></c:if>
@@ -261,6 +250,43 @@
                         </table>
                     </c:if>
                 </div>
+                
+                <%-- ✅ NEW: Pending Inventory Panel (Phase 4) --%>
+                <div class="pending-inventory-panel">
+                    <h3>Pending Inventory (Awaiting Lab Tests)</h3>
+                    <c:if test="${empty pendingBags}">
+                        <p>No bags are currently awaiting testing.</p>
+                    </c:if>
+                    <c:if test="${not empty pendingBags}">
+                        <table>
+                           <thead>
+                               <tr>
+                                   <th>Bag ID</th>
+                                   <th>Blood Group</th>
+                                   <th>Donation Date</th>
+                                   <th>Expiry Date</th>
+                                   <th>Action</th>
+                               </tr>
+                           </thead>
+                           <tbody>
+                               <c:forEach var="bag" items="${pendingBags}">
+                                   <tr>
+                                       <td data-label="Bag ID">${bag.bagId}</td>
+                                       <td data-label="Blood Group">${bag.bloodGroup}</td>
+                                       <td data-label="Donation Date">${bag.dateDonated}</td>
+                                       <td data-label="Expiry Date">${bag.expiryDate}</td>
+                                       <td class="actions-cell" data-label="Action">
+                                           <a href="${pageContext.request.contextPath}/update-inventory-status?bagId=${bag.bagId}&status=CLEARED" 
+                                              class="btn approve-btn"
+                                              onclick="return confirm('Are you sure you want to clear this bag for use?');">Clear for Use</a>
+                                       </td>
+                                   </tr>
+                               </c:forEach>
+                           </tbody>
+                        </table>
+                    </c:if>
+                </div>
+
             </div>
         </div>
     </div>

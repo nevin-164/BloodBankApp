@@ -60,11 +60,15 @@ public class DonationDAO {
         return null;
     }
 
+    /**
+     * ✅ MODIFIED: Now fetches the 'status' column.
+     * Also fetches appointments that are 'PENDING' OR 'PRE-SCREEN_PASSED'.
+     */
     public static List<Donation> getPendingDonations(int hospitalId) throws Exception {
         List<Donation> appointments = new ArrayList<>();
-        String sql = "SELECT d.donation_id, u.name as donor_name, d.blood_group, d.units, d.appointment_date " +
+        String sql = "SELECT d.donation_id, u.name as donor_name, d.blood_group, d.units, d.appointment_date, d.status " +
                      "FROM donations d JOIN users u ON d.user_id = u.user_id " +
-                     "WHERE d.status = 'PENDING' AND d.hospital_id = ? " +
+                     "WHERE (d.status = 'PENDING' OR d.status = 'PRE-SCREEN_PASSED') AND d.hospital_id = ? " +
                      "ORDER BY d.appointment_date ASC";
         try (Connection con = DBUtil.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -77,6 +81,7 @@ public class DonationDAO {
                     appt.setBloodGroup(rs.getString("blood_group"));
                     appt.setUnits(rs.getInt("units"));
                     appt.setAppointmentDate(rs.getDate("appointment_date"));
+                    appt.setStatus(rs.getString("status")); // ✅ ADDED THIS LINE
                     appointments.add(appt);
                 }
             }
@@ -190,10 +195,6 @@ public class DonationDAO {
         return count;
     }
 
-    /**
-     * ✅ NEW: Added for 'Annual Donor' Badge.
-     * Counts approved donations for a user within the past 365 days.
-     */
     public static int getDonationCountInPastYear(int userId) throws SQLException {
         String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? " +
                      "AND (status = 'APPROVED' OR status = 'FULFILLED') " +
@@ -210,5 +211,39 @@ public class DonationDAO {
             }
         }
         return count;
+    }
+
+    /**
+     * ✅ NEW: Added for Phase 4 (Admin CRM).
+     * Fetches the complete donation history for a single user.
+     */
+    public static List<Donation> getDonationsByUserId(int userId) throws SQLException {
+        List<Donation> history = new ArrayList<>();
+        // Join with hospitals to get the hospital's name for each donation
+        String sql = "SELECT d.*, h.name as hospital_name FROM donations d " +
+                     "JOIN hospitals h ON d.hospital_id = h.hospital_id " +
+                     "WHERE d.user_id = ? " +
+                     "ORDER BY d.appointment_date DESC";
+        
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setInt(1, userId);
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Donation donation = new Donation();
+                    donation.setDonationId(rs.getInt("donation_id"));
+                    donation.setHospitalName(rs.getString("hospital_name"));
+                    donation.setBloodGroup(rs.getString("blood_group"));
+                    donation.setUnits(rs.getInt("units"));
+                    donation.setAppointmentDate(rs.getDate("appointment_date"));
+                    donation.setStatus(rs.getString("status"));
+                    // We can add more fields to the model if needed, e.g., donation_date
+                    history.add(donation);
+                }
+            }
+        }
+        return history;
     }
 }

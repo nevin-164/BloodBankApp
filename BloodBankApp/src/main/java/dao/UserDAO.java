@@ -104,15 +104,23 @@ public class UserDAO {
     }
 
     /**
-     * ✅ FIXED: Added the DELETE statement for the 'achievements' table.
-     * This method is now in a full transaction, deleting from all child tables
-     * before deleting from the parent 'users' table.
+     * ✅ FINAL VERSION: Deletes from ALL child and grandchild tables.
+     * This fixes all foreign key constraint errors.
      */
     public static void deleteUser(int userId) throws Exception {
-        // ✅ NEW: Added the SQL for the achievements table
+        // Define all SQL delete statements in the correct order
+        
+        // 1. Delete "grandchildren" (must be first)
+        String deleteInventorySQL = "DELETE FROM blood_inventory WHERE donation_id IN (SELECT donation_id FROM donations WHERE user_id = ?)";
+        String deleteCommentsSQL = "DELETE FROM community_comments WHERE post_id IN (SELECT post_id FROM community_posts WHERE user_id = ?)";
+        
+        // 2. Delete "children"
         String deleteAchievementsSQL = "DELETE FROM achievements WHERE user_id = ?";
         String deleteRequestsSQL = "DELETE FROM requests WHERE patient_id = ?";
+        String deletePostsSQL = "DELETE FROM community_posts WHERE user_id = ?";
         String deleteDonationsSQL = "DELETE FROM donations WHERE user_id = ?";
+        
+        // 3. Delete "parent"
         String deleteUserSQL = "DELETE FROM users WHERE user_id = ?";
         
         Connection con = null;
@@ -120,22 +128,37 @@ public class UserDAO {
             con = DBUtil.getConnection();
             con.setAutoCommit(false); // Start transaction
             
-            // ✅ STEP 1: Delete from achievements (new child table)
+            // --- Execute Deletes in Order ---
+            
+            // Step 1: Grandchildren
+            try (PreparedStatement ps = con.prepareStatement(deleteInventorySQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = con.prepareStatement(deleteCommentsSQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+            
+            // Step 2: Children
             try (PreparedStatement ps = con.prepareStatement(deleteAchievementsSQL)) {
                 ps.setInt(1, userId);
                 ps.executeUpdate();
             }
-            // STEP 2: Delete from requests (child table)
             try (PreparedStatement ps = con.prepareStatement(deleteRequestsSQL)) {
                 ps.setInt(1, userId);
                 ps.executeUpdate();
             }
-            // STEP 3: Delete from donations (child table)
+            try (PreparedStatement ps = con.prepareStatement(deletePostsSQL)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
             try (PreparedStatement ps = con.prepareStatement(deleteDonationsSQL)) {
                 ps.setInt(1, userId);
                 ps.executeUpdate();
             }
-            // STEP 4: Delete from users (parent table)
+            
+            // Step 3: Parent
             try (PreparedStatement ps = con.prepareStatement(deleteUserSQL)) {
                 ps.setInt(1, userId);
                 ps.executeUpdate();

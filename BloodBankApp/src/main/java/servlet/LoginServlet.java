@@ -13,6 +13,8 @@ public class LoginServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         String email = req.getParameter("email");
         String password = req.getParameter("password");
+        // ✅ 1. Get the new redirectURL parameter from the hidden form field
+        String redirectURL = req.getParameter("redirectURL");
 
         try {
             User user = UserDAO.findByEmailAndPassword(email, password);
@@ -33,21 +35,26 @@ public class LoginServlet extends HttpServlet {
             HttpSession newSession = req.getSession(true);
             newSession.setAttribute("user", user);
 
-            // Redirect based on the user's role
+            // ✅ 2. Check for a valid redirect URL *before* checking the role
+            if (redirectURL != null && !redirectURL.isEmpty() && !redirectURL.equals("null")) {
+                // A valid URL was passed from a page like /community. Send the user back.
+                res.sendRedirect(redirectURL);
+                return; // We are done
+            }
+
+            // 3. If no redirectURL, fall back to the default role-based redirect
             switch (user.getRole()) {
                 case "ADMIN":
-                    res.sendRedirect("admin.jsp");
+                    res.sendRedirect(req.getContextPath() + "/admin.jsp"); // Added context path
                     break;
                 case "DONOR":
-                    // ✅ FIXED: Changed forward to sendRedirect. This creates a new GET request
-                    // to the /donate URL, which correctly triggers the doGet method.
-                    res.sendRedirect(req.getContextPath() + "/donate");
+                    res.sendRedirect(req.getContextPath() + "/donate"); // This is already correct
                     break;
                 case "PATIENT":
-                    res.sendRedirect("patient.jsp");
+                    res.sendRedirect(req.getContextPath() + "/patient.jsp"); // Added context path
                     break;
                 default:
-                    res.sendRedirect("login.jsp?error=Unknown+role");
+                    res.sendRedirect(req.getContextPath() + "/login.jsp?error=Unknown+role"); // Added context path
                     break;
             }
         } catch (Exception e) {
