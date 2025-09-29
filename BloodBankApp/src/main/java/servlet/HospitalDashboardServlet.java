@@ -1,36 +1,32 @@
-package servlet; // ⚠️ Make sure this package name matches yours!
+package servlet;
 
-import dao.DonationDAO;
-import dao.RequestDAO;
-import dao.StockDAO;
-import dao.BloodInventoryDAO; // ✅ ADDED: New DAO for inventory
-import model.Hospital;
-import model.BloodInventory; // ✅ ADDED: New model for inventory
-
+import dao.*;
+import model.*;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import java.util.List;
-import model.Request;
-import model.Donation;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-@WebServlet("/hospital-dashboard") // This is the new URL for the dashboard
+/**
+ * This is the final, definitive version of the dashboard servlet.
+ * Its primary responsibility is to fetch ALL necessary data for the hospital dashboard
+ * and forward it to the JSP page. This version assumes all DAO calls will succeed.
+ */
+@WebServlet("/hospital-dashboard")
 public class HospitalDashboardServlet extends HttpServlet {
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        
+
         HttpSession session = request.getSession(false);
-        
-        // 1. Security Check
+
+        // 1. Security Check: Ensure a hospital is logged in.
         Hospital hospital = (session != null) ? (Hospital) session.getAttribute("hospital") : null;
         if (hospital == null) {
             response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
@@ -38,41 +34,41 @@ public class HospitalDashboardServlet extends HttpServlet {
         }
 
         try {
-            // 2. Load ALL data
             int hospitalId = hospital.getId();
-            
-            // Original Data
+
+            // 2. Fetch All Data Models for the Dashboard
             Map<String, Integer> currentStock = StockDAO.getStockByHospital(hospitalId);
             List<Request> pendingRequests = RequestDAO.getPendingRequestsForHospital(hospitalId);
             List<Donation> pendingDonations = DonationDAO.getPendingDonations(hospitalId);
-            
-            // Analytics Data (Feature 2)
-            Map<String, Double> avgDonations = DonationDAO.getAverageDailyDonations(hospitalId);
-            Map<String, Double> avgRequests = RequestDAO.getAverageDailyRequests(hospitalId);
-            
-            // Create a combined set of all blood groups
-            Set<String> allBloodGroups = new HashSet<>(avgDonations.keySet());
-            allBloodGroups.addAll(avgRequests.keySet());
-            
-            // ✅ NEW: Data for "Pending Inventory" Panel (Phase 4)
             List<BloodInventory> pendingBags = BloodInventoryDAO.getPendingBagsByHospital(hospitalId);
+            
+            List<Hospital> allHospitals = HospitalDAO.getAllHospitals();
+            List<Hospital> otherHospitals = allHospitals.stream()
+                .filter(h -> h.getId() != hospitalId)
+                .collect(Collectors.toList());
+            
+            List<StockTransfer> pendingTransfers = StockTransferDAO.getPendingTransfersForHospital(hospitalId);
+            List<BloodInventory> inTransitBags = BloodInventoryDAO.getInTransitBagsByHospital(hospitalId);
 
-            // 3. Set all data as REQUEST attributes for the JSP
+            // 3. Set All Fetched Data as Request Attributes for the JSP
+            request.setAttribute("hospital", hospital);
             request.setAttribute("currentStock", currentStock);
             request.setAttribute("pendingRequests", pendingRequests);
             request.setAttribute("pendingDonations", pendingDonations);
-            request.setAttribute("avgDonations", avgDonations);
-            request.setAttribute("avgRequests", avgRequests);
-            request.setAttribute("allBloodGroups", allBloodGroups);
-            request.setAttribute("pendingBags", pendingBags); // ✅ ADDED: New attribute
-            request.setAttribute("hospital", hospital); 
+            request.setAttribute("pendingBags", pendingBags);
+            request.setAttribute("otherHospitals", otherHospitals);
+            request.setAttribute("pendingTransfers", pendingTransfers);
+            request.setAttribute("inTransitBags", inTransitBags);
 
-            // 4. Forward to the JSP (the "View")
+            // 4. Forward the request and response to the JSP view.
             request.getRequestDispatcher("/hospital-dashboard.jsp").forward(request, response);
 
         } catch (Exception e) {
+            // If any error occurs during data fetching, log it and show a clear error on the page.
             e.printStackTrace();
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "An error occurred while loading dashboard data.");
+            request.setAttribute("errorMessage", "A critical error occurred while loading dashboard data: " + e.getMessage());
+            request.getRequestDispatcher("/hospital-dashboard.jsp").forward(request, response);
         }
     }
 }
+
