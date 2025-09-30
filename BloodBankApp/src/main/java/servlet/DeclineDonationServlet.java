@@ -9,14 +9,20 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
-import java.net.URLEncoder; // Import the URL encoder
+import java.net.URLEncoder;
 
 @WebServlet("/decline-donation")
 public class DeclineDonationServlet extends HttpServlet {
+
+    /**
+     * ✅ FINAL VERSION: Handles the declining of a pending donation appointment by a hospital.
+     * This servlet has been updated to call the new, dedicated public method 
+     * in the DAO, resolving the previous compile error and adhering to safer design practices.
+     */
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
 
-        // Security check for hospital user
+        // --- 1. Security Check ---
         HttpSession session = req.getSession(false);
         if (session == null || session.getAttribute("hospital") == null) {
             res.sendRedirect(req.getContextPath() + "/hospital-login.jsp");
@@ -26,28 +32,34 @@ public class DeclineDonationServlet extends HttpServlet {
         String successMessage = "";
         String errorMessage = "";
 
+        // --- 2. Process the Decline Action ---
         try {
+            // Get the ID of the donation to be declined from the URL parameter.
             int donationId = Integer.parseInt(req.getParameter("donationId"));
 
-            // Use the new DAO method to update the status
-            DonationDAO.updateDonationStatus(donationId, "DECLINED");
+            // ✅ FIXED: Call the new, dedicated public method for declining.
+            DonationDAO.declineDonation(donationId);
 
-            successMessage = "Donation appointment " + donationId + " has been declined.";
+            successMessage = "Donation appointment #" + donationId + " has been successfully declined.";
 
+        } catch (NumberFormatException e) {
+            errorMessage = "Invalid donation ID format.";
         } catch (Exception e) {
-            errorMessage = "Error declining donation appointment";
-            e.printStackTrace();
+            errorMessage = "An error occurred while declining the donation appointment.";
+            e.printStackTrace(); // Log the full error for debugging.
         }
         
-        // ✅ FIX: Redirect to the SERVLET, not the JSP, to fix stale data.
+        // --- 3. Redirect Back to the Dashboard ---
+        // Redirecting to the servlet ensures the page reloads with the latest data from the database.
         String redirectURL = req.getContextPath() + "/hospital-dashboard";
         
-        if (successMessage != null && !successMessage.isEmpty()) {
+        if (!successMessage.isEmpty()) {
             redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
-        } else if (errorMessage != null && !errorMessage.isEmpty()) {
+        } else if (!errorMessage.isEmpty()) {
             redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
         }
         
         res.sendRedirect(redirectURL);
     }
 }
+

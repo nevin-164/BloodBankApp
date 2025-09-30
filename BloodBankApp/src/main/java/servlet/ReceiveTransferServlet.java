@@ -9,11 +9,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder;
 
 /**
- * This servlet handles the final step of the inter-hospital stock transfer.
- * It is responsible for securely receiving an in-transit blood bag and updating
- * its status to 'CLEARED', officially adding it to the receiving hospital's inventory.
+ * ✅ FINAL VERSION: Handles the secure receipt of an in-transit blood bag.
+ * This servlet includes a critical security check to verify that the logged-in hospital
+ * is the legitimate owner of the bag before updating its status to 'CLEARED'.
  */
 @WebServlet("/receive-transfer")
 public class ReceiveTransferServlet extends HttpServlet {
@@ -21,44 +22,47 @@ public class ReceiveTransferServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         Hospital hospital = (session != null) ? (Hospital) session.getAttribute("hospital") : null;
 
-        // Standard security check to ensure a hospital is logged in.
+        // 1. Standard security check to ensure a hospital is logged in.
         if (hospital == null) {
             response.sendRedirect("hospital-login.jsp");
             return;
         }
 
+        String successMessage = "";
+        String errorMessage = "";
+
         try {
             int bagId = Integer.parseInt(request.getParameter("bagId"));
             int hospitalId = hospital.getId();
 
-            // --- CRITICAL SECURITY CHECK ---
-            // Before proceeding, we verify that the bag being received is actually assigned
+            // 2. --- CRITICAL OWNERSHIP CHECK ---
+            // Before proceeding, verify that the bag being received is actually assigned
             // to the hospital that is currently logged in.
             int ownerHospitalId = BloodInventoryDAO.getHospitalIdForBag(bagId);
 
             if (ownerHospitalId == hospitalId) {
                 // If the check passes, the hospital is the legitimate owner. Proceed.
                 BloodInventoryDAO.updateBagStatus(bagId, "CLEARED");
-                session.setAttribute("successMessage", "Blood bag #" + bagId + " has been successfully received and added to your cleared inventory.");
+                successMessage = "Blood bag #" + bagId + " has been successfully received and added to your inventory.";
             } else {
-                // If the check fails, this is a security or data consistency issue.
-                // We do not proceed and inform the user of the error.
-                session.setAttribute("errorMessage", "Error: You do not have permission to receive bag #" + bagId + ". The shipment may belong to another hospital.");
+                // If the check fails, this is a security or data consistency issue. Do not proceed.
+                errorMessage = "Error: You do not have permission to receive bag #" + bagId + ". The shipment may belong to another hospital.";
             }
             
-            // Redirect back to the dashboard to show the updated inventory lists.
-            response.sendRedirect("hospital-dashboard");
-
         } catch (NumberFormatException e) {
-            // This handles cases where the bagId in the URL is not a valid number.
-            session.setAttribute("errorMessage", "Invalid bag ID provided.");
-            response.sendRedirect("hospital-dashboard");
+            errorMessage = "Invalid bag ID provided in the URL.";
         } catch (Exception e) {
-            // This is a general catch-all for any other unexpected errors (e.g., database connection issues).
+            errorMessage = "A critical error occurred while receiving the bag.";
             e.printStackTrace();
-            session.setAttribute("errorMessage", "A critical error occurred while receiving the bag: " + e.getMessage());
-            response.sendRedirect("hospital-dashboard");
         }
+        
+        // 3. Redirect back to the dashboard with a success or error message.
+        String redirectURL = request.getContextPath() + "/hospital-dashboard";
+        if (!successMessage.isEmpty()) {
+            redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
+        } else if (!errorMessage.isEmpty()) {
+            redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
+        }
+        response.sendRedirect(redirectURL);
     }
 }
-

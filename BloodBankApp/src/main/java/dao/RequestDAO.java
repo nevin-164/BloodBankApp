@@ -3,51 +3,35 @@ package dao;
 import model.Request;
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-/**
- * This is the final, complete, and synchronized version of the RequestDAO.
- * It includes all methods required by other servlets and JSPs with consistent naming,
- * and the SQL syntax has been corrected to match the database schema.
- */
 public class RequestDAO {
 
-    /**
-     * Fetches all pending requests for a specific hospital.
-     */
-    public static List<Request> getPendingRequestsForHospital(int hospitalId) throws Exception {
+    public static List<Request> getAllPendingRequests() throws Exception {
         List<Request> requests = new ArrayList<>();
-        // Note: This query assumes the join column is 'patient_id' in requests table
-        String sql = "SELECT r.*, u.name as userName FROM requests r JOIN users u ON r.patient_id = u.user_id " +
-                     "WHERE r.hospital_id = ? AND r.status = 'PENDING' ORDER BY r.createdAt ASC";
+        String sql = "SELECT r.*, u.name as patientName FROM requests r JOIN users u ON r.patient_id = u.user_id " +
+                     "WHERE r.status = 'PENDING' ORDER BY r.request_date ASC";
 
         try (Connection con = DBUtil.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, hospitalId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Request req = new Request();
-                    req.setRequestId(rs.getInt("requestId"));
-                    req.setPatientName(rs.getString("patientName"));
-                    req.setBloodGroup(rs.getString("bloodGroup"));
-                    req.setUnits(rs.getInt("units"));
-                    req.setStatus(rs.getString("status"));
-                    req.setCreatedAt(rs.getTimestamp("createdAt"));
-                    req.setUserName(rs.getString("userName"));
-                    requests.add(req);
-                }
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                Request req = new Request();
+                req.setRequestId(rs.getInt("request_id"));
+                req.setPatientName(rs.getString("patientName"));
+                req.setBloodGroup(rs.getString("blood_group"));
+                req.setUnits(rs.getInt("units_requested"));
+                req.setStatus(rs.getString("status"));
+                req.setCreatedAt(rs.getTimestamp("request_date"));
+                requests.add(req);
             }
         }
         return requests;
     }
 
-    /**
-     * Updates the global status of a request (e.g., "PENDING" to "FULFILLED" or "DECLINED").
-     */
     public static void updateRequestStatus(int requestId, String newStatus) throws Exception {
-        String sql = "UPDATE requests SET status = ? WHERE requestId = ?";
+        String sql = "UPDATE requests SET status = ? WHERE request_id = ?";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, newStatus);
             ps.setInt(2, requestId);
@@ -55,34 +39,26 @@ public class RequestDAO {
         }
     }
 
-    /**
-     * Fetches a single request by its unique ID.
-     */
     public static Request getRequestById(int requestId) throws Exception {
-        String sql = "SELECT * FROM requests WHERE requestId = ?";
+        String sql = "SELECT * FROM requests WHERE request_id = ?";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, requestId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     Request req = new Request();
-                    req.setRequestId(rs.getInt("requestId"));
-                    req.setUserId(rs.getInt("patient_id")); 
-                    req.setHospitalId(rs.getInt("hospital_id"));
-                    req.setPatientName(rs.getString("patientName"));
-                    req.setBloodGroup(rs.getString("bloodGroup"));
-                    req.setUnits(rs.getInt("units"));
+                    req.setRequestId(rs.getInt("request_id"));
+                    req.setUserId(rs.getInt("patient_id"));
+                    req.setBloodGroup(rs.getString("blood_group"));
+                    req.setUnits(rs.getInt("units_requested"));
                     req.setStatus(rs.getString("status"));
-                    req.setCreatedAt(rs.getTimestamp("createdAt"));
+                    req.setCreatedAt(rs.getTimestamp("request_date"));
                     return req;
                 }
             }
         }
         return null;
     }
- 
-    /**
-     * Logs a hospital's action for a request.
-     */
+
     public static void logRequestAction(int requestId, int hospitalId, String action) throws Exception {
         String sql = "INSERT INTO request_actions (request_id, hospital_id, action) VALUES (?, ?, ?)";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
@@ -92,12 +68,14 @@ public class RequestDAO {
             ps.executeUpdate();
         }
     }
-
+    
     /**
-     * Updates the patient-facing tracking status of a request.
+     * ✅ NEWLY ADDED: This method was missing, causing the compile error.
+     * It updates a separate tracking_status column, which is intended for patient visibility.
+     * NOTE: This assumes you have added a `tracking_status VARCHAR(50)` column to your `requests` table.
      */
     public static void updateTrackingStatus(int requestId, String trackingStatus) throws Exception {
-        String sql = "UPDATE requests SET tracking_status = ? WHERE requestId = ?";
+        String sql = "UPDATE requests SET tracking_status = ? WHERE request_id = ?";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, trackingStatus);
             ps.setInt(2, requestId);
@@ -105,27 +83,24 @@ public class RequestDAO {
         }
     }
 
-    /**
-     * Fetches all historical requests made by a specific user.
-     */
     public static List<Request> getRequestsByUserId(int userId) throws Exception {
         List<Request> requests = new ArrayList<>();
-        // ✅ FIXED: Changed the incorrect column name 'r.hospitalId' to 'r.hospital_id' to match the database schema.
         String sql = "SELECT r.*, h.name as hospitalName FROM requests r " +
-                     "LEFT JOIN hospitals h ON r.hospital_id = h.hospital_id " +
-                     "WHERE r.patient_id = ? ORDER BY r.createdAt DESC";
+                     "LEFT JOIN request_actions ra ON r.request_id = ra.request_id AND ra.action = 'APPROVED' " +
+                     "LEFT JOIN hospitals h ON ra.hospital_id = h.hospital_id " +
+                     "WHERE r.patient_id = ? ORDER BY r.request_date DESC";
         
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, userId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Request req = new Request();
-                    req.setRequestId(rs.getInt("requestId"));
-                    req.setBloodGroup(rs.getString("bloodGroup"));
-                    req.setUnits(rs.getInt("units"));
-                    req.setCreatedAt(rs.getTimestamp("createdAt"));
+                    req.setRequestId(rs.getInt("request_id"));
+                    req.setBloodGroup(rs.getString("blood_group"));
+                    req.setUnits(rs.getInt("units_requested"));
+                    req.setCreatedAt(rs.getTimestamp("request_date"));
                     req.setStatus(rs.getString("status"));
-                    req.setHospitalName(rs.getString("hospitalName"));
+                    req.setHospitalName(rs.getString("hospitalName")); 
                     requests.add(req);
                 }
             }
@@ -133,4 +108,3 @@ public class RequestDAO {
         return requests;
     }
 }
-

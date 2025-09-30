@@ -1,6 +1,7 @@
 package dao;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -9,28 +10,34 @@ import java.util.List;
 import model.BloodInventory;
 
 /**
- * This is the final, definitive version of the BloodInventoryDAO.
- * It contains all methods required for the entire application workflow,
- * including manual addition and removal of stock.
+ * ✅ FINAL VERSION: The definitive Data Access Object for managing the detailed Blood Inventory.
+ * This class contains all methods required for the entire application workflow, including
+ * the critical overloaded method to participate in transactions.
  */
 public class BloodInventoryDAO {
-
-    // --- Methods for Standard Donation and Inventory Flow ---
-
-    public static void addBag(BloodInventory bag) throws Exception {
-        String sql = "INSERT INTO blood_inventory (donation_id, hospital_id, blood_group, date_donated, expiry_date, inventory_status) " +
-                     "VALUES (?, ?, ?, ?, ?, ?)";
-        try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, bag.getDonationId());
-            ps.setInt(2, bag.getHospitalId());
-            ps.setString(3, bag.getBloodGroup());
-            ps.setDate(4, bag.getDateDonated());
-            ps.setDate(5, bag.getExpiryDate());
-            ps.setString(6, bag.getInventoryStatus());
+	
+    /**
+     * ✅ OVERLOADED VERSION FOR TRANSACTIONS:
+     * This version of addBag accepts and uses an existing database connection,
+     * allowing it to safely participate in the "all-or-nothing" transaction started in DonationDAO.
+     */
+	public static void addBag(int donationId, int hospitalId, String bloodGroup, Date dateDonated, Connection con) throws SQLException {
+        String sql = "INSERT INTO blood_inventory (donation_id, hospital_id, blood_group, date_donated, expiry_date, inventory_status) VALUES (?, ?, ?, ?, DATE_ADD(?, INTERVAL 42 DAY), 'PENDING_TEST')";
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, donationId);
+            ps.setInt(2, hospitalId);
+            ps.setString(3, bloodGroup);
+            ps.setDate(4, dateDonated);
+            ps.setDate(5, dateDonated); // Used again for the expiry date calculation
             ps.executeUpdate();
         }
     }
 
+    // --- Methods for Standard Donation and Inventory Flow ---
+
+    /**
+     * Retrieves a list of all blood bags for a hospital that are awaiting testing.
+     */
     public static List<BloodInventory> getPendingBagsByHospital(int hospitalId) throws Exception {
         List<BloodInventory> pendingBags = new ArrayList<>();
         String sql = "SELECT * FROM blood_inventory WHERE hospital_id = ? AND inventory_status = 'PENDING_TEST' ORDER BY date_donated ASC";
@@ -52,6 +59,9 @@ public class BloodInventoryDAO {
         return pendingBags;
     }
 
+    /**
+     * Updates the status of a single blood bag. Used for moving a bag through the workflow.
+     */
     public static void updateBagStatus(int bagId, String newStatus) throws Exception {
         String sql = "UPDATE blood_inventory SET inventory_status = ? WHERE bag_id = ?";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
@@ -60,23 +70,57 @@ public class BloodInventoryDAO {
             ps.executeUpdate();
         }
     }
+    
+    /**
+     * Finds the oldest available bags of a specific type and updates their status to 'USED'.
+     */
+    public static int useOldestClearedBags(int hospitalId, String bloodGroup, int unitsToUse) throws Exception {
+        String findBagsSql = "SELECT bag_id FROM blood_inventory WHERE hospital_id = ? AND blood_group = ? AND inventory_status = 'CLEARED' ORDER BY date_donated ASC LIMIT ?";
+        List<Integer> bagIdsToUse = new ArrayList<>();
+        try (Connection con = DBUtil.getConnection(); PreparedStatement findPs = con.prepareStatement(findBagsSql)) {
+            findPs.setInt(1, hospitalId);
+            findPs.setString(2, bloodGroup);
+            findPs.setInt(3, unitsToUse);
+            try (ResultSet rs = findPs.executeQuery()) {
+                while (rs.next()) {
+                    bagIdsToUse.add(rs.getInt("bag_id"));
+                }
+            }
+        }
+        
+        if (bagIdsToUse.size() < unitsToUse) { return 0; }
+
+        String updateSql = "UPDATE blood_inventory SET inventory_status = 'USED' WHERE bag_id = ?";
+        int updatedCount = 0;
+        try (Connection con = DBUtil.getConnection(); PreparedStatement updatePs = con.prepareStatement(updateSql)) {
+            for (int bagId : bagIdsToUse) {
+                updatePs.setInt(1, bagId);
+                updatedCount += updatePs.executeUpdate();
+            }
+        }
+        return updatedCount;
+    }
 
     // --- Methods for Manual Stock Addition & Removal ---
 
-    public static void manuallyAddClearedBag(int hospitalId, String bloodGroup) throws Exception {
+    /**
+     * Manually inserts a new, already-cleared blood bag into the inventory.
+     */
+    public static void manuallyAddClearedBag(int hospitalId, String bloodGroup, int units) throws Exception {
         String sql = "INSERT INTO blood_inventory (hospital_id, blood_group, date_donated, expiry_date, inventory_status, donation_id) " +
                      "VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 42 DAY), 'CLEARED', NULL)";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, hospitalId);
-            ps.setString(2, bloodGroup);
-            ps.executeUpdate();
+            for (int i = 0; i < units; i++) {
+                ps.setInt(1, hospitalId);
+                ps.setString(2, bloodGroup);
+                ps.addBatch();
+            }
+            ps.executeBatch();
         }
     }
     
     /**
-     * ✅ Method to support the manual stock removal feature.
-     * Deletes the oldest 'CLEARED' bags of a specific type for a hospital.
-     * @return The number of bags actually deleted.
+     * Manually removes a specified number of the oldest cleared blood bags of a certain type.
      */
     public static int manuallyRemoveClearedBags(int hospitalId, String bloodGroup, int unitsToRemove) throws Exception {
         String sql = "DELETE FROM blood_inventory WHERE hospital_id = ? AND blood_group = ? AND inventory_status = 'CLEARED' ORDER BY date_donated ASC LIMIT ?";
@@ -84,12 +128,15 @@ public class BloodInventoryDAO {
             ps.setInt(1, hospitalId);
             ps.setString(2, bloodGroup);
             ps.setInt(3, unitsToRemove);
-            return ps.executeUpdate(); // Returns the number of rows affected.
+            return ps.executeUpdate();
         }
     }
 
     // --- Methods for Inter-Hospital Transfers ---
 
+    /**
+     * Gets the current count of cleared, available blood bags for a specific blood group at a hospital.
+     */
     public static int getClearedBagCount(int hospitalId, String bloodGroup) throws Exception {
         String sql = "SELECT COUNT(*) FROM blood_inventory WHERE hospital_id = ? AND blood_group = ? AND inventory_status = 'CLEARED'";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
@@ -104,6 +151,9 @@ public class BloodInventoryDAO {
         return 0;
     }
 
+    /**
+     * Transfers a specified number of blood bags from one hospital to another.
+     */
     public static int transferBags(int fromHospitalId, int toHospitalId, String bloodGroup, int units) throws Exception {
         String findBagsSql = "SELECT bag_id FROM blood_inventory WHERE hospital_id = ? AND blood_group = ? AND inventory_status = 'CLEARED' ORDER BY date_donated ASC LIMIT ?";
         String updateBagSql = "UPDATE blood_inventory SET hospital_id = ?, inventory_status = 'IN_TRANSIT' WHERE bag_id = ?";
@@ -130,6 +180,9 @@ public class BloodInventoryDAO {
         }
     }
 
+    /**
+     * Retrieves a list of all blood bags for a hospital that are currently in transit.
+     */
     public static List<BloodInventory> getInTransitBagsByHospital(int hospitalId) throws Exception {
         List<BloodInventory> inTransitBags = new ArrayList<>();
         String sql = "SELECT * FROM blood_inventory WHERE hospital_id = ? AND inventory_status = 'IN_TRANSIT'";
@@ -149,6 +202,13 @@ public class BloodInventoryDAO {
         return inTransitBags;
     }
 
+    /**
+     * ✅ RESTORED "LOST" METHOD: This is the critical security check for receiving transfers.
+     * It fetches the assigned hospital ID for a specific bag, allowing the servlet to verify ownership.
+     *
+     * @param bagId The unique ID of the blood bag to check.
+     * @return The owner hospital's ID, or -1 if the bag is not found.
+     */
     public static int getHospitalIdForBag(int bagId) throws Exception {
         String sql = "SELECT hospital_id FROM blood_inventory WHERE bag_id = ?";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
@@ -162,6 +222,9 @@ public class BloodInventoryDAO {
         return -1; // Return -1 if bag not found
     }
 
+    /**
+     * Receives all in-transit blood bags for a specific hospital, changing their status to 'CLEARED'.
+     */
     public static int receiveAllBagsForHospital(int hospitalId) throws Exception {
         String sql = "UPDATE blood_inventory SET inventory_status = 'CLEARED' WHERE hospital_id = ? AND inventory_status = 'IN_TRANSIT'";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {

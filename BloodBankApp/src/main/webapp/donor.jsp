@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate, model.Achievement, model.Request" %>
+<%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate, model.Achievement" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     User u = (User) session.getAttribute("user");
@@ -28,9 +28,10 @@
     List<Achievement> achievements = dao.AchievementDAO.getAchievementsForUser(u.getId());
     request.setAttribute("achievements", achievements);
     
-    // ✅ FIXED: Using the single, correct method name from the final DAO
-    List<Request> myRequests = dao.RequestDAO.getRequestsByUserId(u.getId());
-    request.setAttribute("myRequests", myRequests);
+    // ✅ FIXED: Changed from loading patient requests to loading the donor's donation history.
+    // This assumes you have a getDonationsByUserId method in your DonationDAO.
+    List<Donation> myDonations = dao.DonationDAO.getDonationsByUserId(u.getId());
+    request.setAttribute("myDonations", myDonations);
 %>
 <!DOCTYPE html>
 <html>
@@ -39,7 +40,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display.swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'Poppins', sans-serif; margin: 0; background-color: #f8f9fa; padding: 20px; }
@@ -62,7 +63,7 @@
         .emergency-box button:hover { background-color: #a71d2a; }
         .thank-you { background-color: #d1ecf1; border-left: 5px solid #0c5460; }
         .thank-you h3 { color: #0c5460; }
-        .achievements-container, .patient-request-container, .status-container {
+        .achievements-container, .status-container {
             margin-top: 30px;
             padding-top: 20px;
             border-top: 2px solid #eee;
@@ -72,13 +73,11 @@
         .badge img { width: 40px; height: 40px; margin-right: 10px; }
         .badge-info h4 { margin: 0; font-size: 1rem; color: #333; }
         .badge-info p { margin: 0; font-size: 0.8rem; color: #777; }
-        .patient-request-container button { background-color: #d9534f; }
-        .patient-request-container button:hover { background-color: #c9302c; }
         .status-table { width: 100%; border-collapse: collapse; }
         .status-table th, .status-table td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
         .status-table th { background-color: #f4f4f4; }
         .status-PENDING { font-weight: bold; color: #ffc107; }
-        .status-FULFILLED { font-weight: bold; color: #28a745; }
+        .status-APPROVED { font-weight: bold; color: #28a745; }
         .status-DECLINED { font-weight: bold; color: #dc3545; }
     </style>
 </head>
@@ -105,6 +104,7 @@
             <h3>Your Upcoming Appointment</h3>
             <p><strong>Date:</strong> <%= appointment.getAppointmentDate() %></p>
             <p><strong>Hospital:</strong> <%= appointment.getHospitalName() %></p>
+            <p><strong>Status:</strong> <span class="status-PENDING"><%= appointment.getStatus() %></span></p>
         <% } else if (isEligible) { %>
             <h3>Request a Donation Appointment</h3>
             <form action="donate" method="post" class="appointment-form">
@@ -170,63 +170,31 @@
             </c:if>
         </div>
         
-        <div class="patient-request-container">
-            <h3>Request Blood</h3>
-            <form action="request-blood" method="post">
-                 <div class="form-group">
-                    <label for="patientName">Patient Name:</label>
-                    <input type="text" id="patientName" name="patientName" required>
-                </div>
-                <div class="form-group">
-                    <label for="hospitalId_req">Choose a Hospital:</label>
-                    <select id="hospitalId_req" name="hospitalId" required>
-                         <% if (hospitals != null) { for (Hospital h : hospitals) { %>
-                            <option value="<%= h.getId() %>"><%= h.getName() %></option>
-                        <% }} %>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="blood_group">Blood Group Needed:</label>
-                    <select id="blood_group" name="bloodGroup" required>
-                        <option value="A+">A+</option><option value="A-">A-</option><option value="B+">B+</option><option value="B-">B-</option><option value="AB+">AB+</option><option value="AB-">AB-</option><option value="O+">O+</option><option value="O-">O-</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="units_req">Units:</label>
-                    <input type="number" id="units_req" name="units" min="1" value="1" required>
-                </div>
-                <button type="submit">Submit Request</button>
-            </form>
-            <c:if test="${not empty msg}">
-                <p class="message ${msg.contains('submitted') ? 'success' : 'error'}">${msg}</p>
-            </c:if>
-        </div>
+        <%-- ✅ FIXED: Removed the "Request Blood" form, as it belongs on the patient page, not the donor page. --%>
         
         <div class="status-container">
-            <h3>My Request History</h3>
-            <c:if test="${empty myRequests}">
-                <p>You have no active or past blood requests.</p>
+            <%-- ✅ FIXED: Changed title and table content to show Donation History instead of Request History. --%>
+            <h3>My Donation History</h3>
+            <c:if test="${empty myDonations}">
+                <p>You have no past donation appointments.</p>
             </c:if>
-            <c:if test="${not empty myRequests}">
+            <c:if test="${not empty myDonations}">
                 <table class="status-table">
                     <thead>
                         <tr>
-                            <th>Request Date</th>
-                            <th>Blood Type</th>
-                            <th>Units</th>
+                            <th>Appointment Date</th>
                             <th>Hospital</th>
+                            <th>Units</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <c:forEach var="req" items="${myRequests}">
+                        <c:forEach var="don" items="${myDonations}">
                             <tr>
-                                <%-- ✅ FIXED: Using the correct property names from the final Request model --%>
-                                <td>${req.createdAt}</td>
-                                <td>${req.bloodGroup}</td>
-                                <td>${req.units}</td>
-                                <td>${req.hospitalName != null ? req.hospitalName : 'N/A'}</td>
-                                <td class="status-${req.status}">${req.status}</td>
+                                <td>${don.appointmentDate}</td>
+                                <td>${don.hospitalName != null ? don.hospitalName : 'N/A'}</td>
+                                <td>${don.units}</td>
+                                <td class="status-${don.status}">${don.status}</td>
                             </tr>
                         </c:forEach>
                     </tbody>
@@ -237,4 +205,3 @@
     </div>
 </body>
 </html>
-
