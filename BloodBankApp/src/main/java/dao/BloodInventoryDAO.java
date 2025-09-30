@@ -12,14 +12,13 @@ import model.BloodInventory;
 /**
  * ✅ FINAL VERSION: The definitive Data Access Object for managing the detailed Blood Inventory.
  * This class contains all methods required for the entire application workflow, including
- * the critical overloaded method to participate in transactions.
+ * the critical methods to participate in database transactions.
  */
 public class BloodInventoryDAO {
 	
     /**
      * ✅ OVERLOADED VERSION FOR TRANSACTIONS:
-     * This version of addBag accepts and uses an existing database connection,
-     * allowing it to safely participate in the "all-or-nothing" transaction started in DonationDAO.
+     * Accepts an existing database connection to safely participate in transactions.
      */
 	public static void addBag(int donationId, int hospitalId, String bloodGroup, Date dateDonated, Connection con) throws SQLException {
         String sql = "INSERT INTO blood_inventory (donation_id, hospital_id, blood_group, date_donated, expiry_date, inventory_status) VALUES (?, ?, ?, ?, DATE_ADD(?, INTERVAL 42 DAY), 'PENDING_TEST')";
@@ -30,6 +29,23 @@ public class BloodInventoryDAO {
             ps.setDate(4, dateDonated);
             ps.setDate(5, dateDonated); // Used again for the expiry date calculation
             ps.executeUpdate();
+        }
+    }
+
+    /**
+     * ✅ NEW TRANSACTIONAL METHOD: Clears all pending bags for a specific donation.
+     * This is designed to be called from within the approveDonationTransaction in DonationDAO.
+     *
+     * @param donationId The ID of the donation whose bags are to be cleared.
+     * @param con The existing database connection for the transaction.
+     * @return The number of bags updated.
+     * @throws SQLException if a database error occurs.
+     */
+    public static int clearPendingBagsForDonation(int donationId, Connection con) throws SQLException {
+        String sql = "UPDATE blood_inventory SET inventory_status = 'CLEARED' WHERE donation_id = ? AND inventory_status = 'PENDING_TEST'";
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, donationId);
+            return ps.executeUpdate();
         }
     }
 
@@ -203,11 +219,7 @@ public class BloodInventoryDAO {
     }
 
     /**
-     * ✅ RESTORED "LOST" METHOD: This is the critical security check for receiving transfers.
-     * It fetches the assigned hospital ID for a specific bag, allowing the servlet to verify ownership.
-     *
-     * @param bagId The unique ID of the blood bag to check.
-     * @return The owner hospital's ID, or -1 if the bag is not found.
+     * This is the critical security check for receiving transfers.
      */
     public static int getHospitalIdForBag(int bagId) throws Exception {
         String sql = "SELECT hospital_id FROM blood_inventory WHERE bag_id = ?";
@@ -233,4 +245,3 @@ public class BloodInventoryDAO {
         }
     }
 }
-

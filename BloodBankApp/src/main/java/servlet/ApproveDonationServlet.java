@@ -13,21 +13,17 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.sql.Date;
 import java.sql.SQLException;
-import java.time.LocalDate;
 
 @WebServlet("/approve-donation")
 public class ApproveDonationServlet extends HttpServlet {
 
     /**
-     * ✅ FINAL VERSION: Processes donation approvals using a database transaction.
-     * This servlet's logic is now much simpler and more robust. It calls a single,
-     * transaction-safe method in the DAO to handle all database updates,
-     * preventing the data inconsistency issues previously observed.
+     * ✅ FINAL VERSION: Handles the FINAL approval of a donation via a POST request.
      */
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+        
         HttpSession session = req.getSession(false);
-
         if (session == null || session.getAttribute("hospital") == null) {
             res.sendRedirect(req.getContextPath() + "/hospital-login.jsp");
             return;
@@ -38,43 +34,33 @@ public class ApproveDonationServlet extends HttpServlet {
 
         try {
             int donationId = Integer.parseInt(req.getParameter("donationId"));
-            Date dateDonated = Date.valueOf(LocalDate.now());
-
-            // ✅ FIXED: Call the single, transaction-safe method to approve the donation.
-            // This one method handles everything: updating dates, adding bags, setting status, and donor eligibility.
-            DonationDAO.approveDonationTransaction(donationId, dateDonated);
+            Date donationDate = Date.valueOf(req.getParameter("donationDate"));
             
-            // Gamification can be processed separately after the main transaction is successful.
-            // We need to get the user ID for the achievement check.
             int userId = DonationDAO.getDonationById(donationId).getUserId();
+
+            DonationDAO.approveDonationTransaction(donationId, donationDate);
+            
             processAchievements(userId);
             
-            successMessage = "Donation approved! Inventory and donor eligibility have been updated successfully.";
+            successMessage = "Donation #" + donationId + " has been successfully approved and completed.";
 
-        } catch (NumberFormatException e) {
-            errorMessage = "Invalid Donation ID provided.";
-        } catch (SQLException e) {
-            // This will now catch errors from the transaction, like if a step failed and was rolled back.
-            errorMessage = "A database error occurred during approval. The operation was safely cancelled. Details: " + e.getMessage();
-            e.printStackTrace();
         } catch (Exception e) {
-            errorMessage = "A general error occurred while trying to approve the donation.";
+            errorMessage = "An error occurred during the approval process: " + e.getMessage();
             e.printStackTrace();
         }
 
-        // --- Redirect back to the hospital dashboard ---
         String redirectURL = req.getContextPath() + "/hospital-dashboard";
         if (!successMessage.isEmpty()) {
             redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
         } else if (!errorMessage.isEmpty()) {
             redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
         }
+        
         res.sendRedirect(redirectURL);
     }
 
     /**
-     * Helper method to handle the achievement logic, called after the main transaction succeeds.
-     * @param userId The ID of the donor who just donated.
+     * Helper method to handle the achievement logic.
      */
     private void processAchievements(int userId) {
         try {
@@ -89,14 +75,13 @@ public class ApproveDonationServlet extends HttpServlet {
             if (totalDonations >= 10 && !AchievementDAO.hasAchievement(userId, "10-Time Donor")) {
                 AchievementDAO.addAchievement(userId, "10-Time Donor", "images/badges/10-time.png");
             }
-
+            // ✅ FIXED: This method call now correctly matches the method in the updated DonationDAO.
             if (!AchievementDAO.hasAchievement(userId, "Annual Donor")) {
                 if (DonationDAO.getDonationCountInPastYear(userId) >= 2) {
                     AchievementDAO.addAchievement(userId, "Annual Donor", "images/badges/annual.png");
                 }
             }
         } catch (Exception e) {
-            // Log the error but don't stop the main process. Gamification is secondary.
             System.err.println("An error occurred during the achievement process: " + e.getMessage());
         }
     }

@@ -13,16 +13,17 @@ import java.net.URLEncoder;
 
 @WebServlet("/update-donation-status")
 public class UpdateDonationStatusServlet extends HttpServlet {
-    
+
     /**
      * ✅ FINAL VERSION: Handles status updates for donations by a hospital.
      * This servlet is typically used for intermediate steps, like moving a donation
      * from 'PENDING' to 'PRE-SCREEN_PASSED'. It has been updated to correctly use the
      * doPost method for data modification, fixing the "405 Method Not Allowed" error.
+     * It now also calls the correct transactional method for pre-screening.
      */
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
-        
+
         // --- 1. Security Check ---
         HttpSession session = req.getSession(false);
         if (session == null || session.getAttribute("hospital") == null) {
@@ -42,15 +43,22 @@ public class UpdateDonationStatusServlet extends HttpServlet {
             if (newStatus == null || newStatus.trim().isEmpty()) {
                 errorMessage = "No new status was provided for the update.";
             } else {
-                // Calls the correct, dedicated public method in the DAO.
-                DonationDAO.updateDonationStatusForHospital(donationId, newStatus);
-                successMessage = "Donation #" + donationId + " status has been updated to '" + newStatus + "'.";
+                // ✅ FIXED: Differentiates between pre-screening and other status updates.
+                if ("PRE-SCREEN_PASSED".equals(newStatus)) {
+                    // Use the new transactional method for pre-screening
+                    DonationDAO.approvePreScreeningTransaction(donationId);
+                    successMessage = "Donation #" + donationId + " has passed pre-screening and is pending lab tests.";
+                } else {
+                    // For any other status updates, use the original method
+                    DonationDAO.updateDonationStatusForHospital(donationId, newStatus);
+                    successMessage = "Donation #" + donationId + " status has been updated to '" + newStatus + "'.";
+                }
             }
 
         } catch (NumberFormatException e) {
             errorMessage = "Invalid donation ID format.";
         } catch (Exception e) {
-            errorMessage = "An error occurred while updating the donation status.";
+            errorMessage = "An error occurred while updating the donation status: " + e.getMessage();
             e.printStackTrace(); // Log the full error for debugging.
         }
 
@@ -61,10 +69,10 @@ public class UpdateDonationStatusServlet extends HttpServlet {
         } else if (!errorMessage.isEmpty()) {
             redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
         }
-        
+
         res.sendRedirect(redirectURL);
     }
-    
+
     /**
      * Handles any accidental GET requests by simply redirecting to the dashboard.
      * This prevents errors if a user bookmarks or directly accesses the URL.
@@ -74,4 +82,3 @@ public class UpdateDonationStatusServlet extends HttpServlet {
         res.sendRedirect(req.getContextPath() + "/hospital-dashboard");
     }
 }
-

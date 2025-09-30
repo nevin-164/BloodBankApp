@@ -2,11 +2,17 @@
 <%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate, model.Achievement" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
-    User u = (User) session.getAttribute("user");
-    if (u == null || !"DONOR".equals(u.getRole())) {
+    // Get the user object from the session to verify they are logged in.
+    User sessionUser = (User) session.getAttribute("user");
+    if (sessionUser == null || !"DONOR".equals(sessionUser.getRole())) {
         response.sendRedirect("login.jsp");
         return;
     }
+
+    // ✅ FINAL FIX: Always get the latest user data from the database.
+    // This solves the stale session issue after a hospital approves a donation.
+    User u = UserDAO.getUserById(sessionUser.getId());
+    session.setAttribute("user", u); // Also, update the session with the fresh data.
 
     boolean isEligible = true;
     if (u.getNextEligibleDate() != null && LocalDate.now().isBefore(u.getNextEligibleDate().toLocalDate())) {
@@ -28,8 +34,6 @@
     List<Achievement> achievements = dao.AchievementDAO.getAchievementsForUser(u.getId());
     request.setAttribute("achievements", achievements);
     
-    // ✅ FIXED: Changed from loading patient requests to loading the donor's donation history.
-    // This assumes you have a getDonationsByUserId method in your DonationDAO.
     List<Donation> myDonations = dao.DonationDAO.getDonationsByUserId(u.getId());
     request.setAttribute("myDonations", myDonations);
 %>
@@ -63,11 +67,7 @@
         .emergency-box button:hover { background-color: #a71d2a; }
         .thank-you { background-color: #d1ecf1; border-left: 5px solid #0c5460; }
         .thank-you h3 { color: #0c5460; }
-        .achievements-container, .status-container {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #eee;
-        }
+        .achievements-container, .status-container { margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee; }
         .badge-list { display: flex; flex-wrap: wrap; gap: 15px; }
         .badge { display: flex; align-items: center; background: #f4f4f4; border-radius: 8px; padding: 10px; width: 100%; max-width: 250px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         .badge img { width: 40px; height: 40px; margin-right: 10px; }
@@ -77,8 +77,9 @@
         .status-table th, .status-table td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
         .status-table th { background-color: #f4f4f4; }
         .status-PENDING { font-weight: bold; color: #ffc107; }
-        .status-APPROVED { font-weight: bold; color: #28a745; }
-        .status-DECLINED { font-weight: bold; color: #dc3545; }
+        .status-APPROVED, .status-COMPLETED { font-weight: bold; color: #28a745; }
+        .status-DECLINED, .status-CLOSED { font-weight: bold; color: #dc3545; }
+        .status-PRE-SCREEN_PASSED { font-weight: bold; color: #007bff; }
     </style>
 </head>
 <body>
@@ -88,11 +89,11 @@
             <a href="logout">Logout</a>
         </div>
         
-        <% if (isEligible) { %>
+        <% if (isEligible && appointment == null) { %>
             <div class="status-box eligible">
                 <strong>You are eligible to book a standard donation appointment.</strong>
             </div>
-        <% } else { %>
+        <% } else if (!isEligible) { %>
             <div class="status-box ineligible">
                 <strong>You are not yet eligible to book a standard donation.</strong><br>
                 Your last donation was on: <%= u.getLastDonationDate() %><br>
@@ -104,7 +105,7 @@
             <h3>Your Upcoming Appointment</h3>
             <p><strong>Date:</strong> <%= appointment.getAppointmentDate() %></p>
             <p><strong>Hospital:</strong> <%= appointment.getHospitalName() %></p>
-            <p><strong>Status:</strong> <span class="status-PENDING"><%= appointment.getStatus() %></span></p>
+            <p><strong>Status:</strong> <span class="status-<%= appointment.getStatus() %>"><%= appointment.getStatus().replace("_", " ") %></span></p>
         <% } else if (isEligible) { %>
             <h3>Request a Donation Appointment</h3>
             <form action="donate" method="post" class="appointment-form">
@@ -170,10 +171,7 @@
             </c:if>
         </div>
         
-        <%-- ✅ FIXED: Removed the "Request Blood" form, as it belongs on the patient page, not the donor page. --%>
-        
         <div class="status-container">
-            <%-- ✅ FIXED: Changed title and table content to show Donation History instead of Request History. --%>
             <h3>My Donation History</h3>
             <c:if test="${empty myDonations}">
                 <p>You have no past donation appointments.</p>
@@ -194,14 +192,13 @@
                                 <td>${don.appointmentDate}</td>
                                 <td>${don.hospitalName != null ? don.hospitalName : 'N/A'}</td>
                                 <td>${don.units}</td>
-                                <td class="status-${don.status}">${don.status}</td>
+                                <td class="status-${don.status}">${don.status.replace("_", " ")}</td>
                             </tr>
                         </c:forEach>
                     </tbody>
                 </table>
             </c:if>
         </div>
-        
     </div>
 </body>
 </html>

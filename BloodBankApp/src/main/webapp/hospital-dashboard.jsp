@@ -93,7 +93,6 @@
         </div>
         
         <div class="dashboard-layout">
-            <!-- COLUMN 1: STOCK MANAGEMENT -->
             <div class="panel">
                 <h3 class="stock-header">Stock & Transfers</h3>
                 <h4>Current Cleared Stock</h4>
@@ -112,7 +111,6 @@
                     </tbody>
                 </table>
                 <hr>
-                <!-- ✅ RESTORED: Manual Stock Adjustment Forms -->
                 <h4>Manual Stock Adjustment</h4>
                 <form action="${pageContext.request.contextPath}/manual-add-stock" method="post">
                     <div class="form-group"><label>Blood Group:</label><select name="bloodGroup" required><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
@@ -133,10 +131,8 @@
                     <button type="submit" class="btn btn-call">Submit Request</button>
                 </form>
             </div>
-            <!-- COLUMN 2: INCOMING ITEMS -->
             <div class="panel">
                 <h3 class="incoming-header">Incoming Queue</h3>
-                <!-- ✅ RESTORED: Incoming Shipments (In-Transit) Panel -->
                 <h4>Incoming Shipments (In-Transit)</h4>
                 <c:if test="${empty inTransitBags}"><p class="empty-state">No shipments in transit.</p></c:if>
                 <c:if test="${not empty inTransitBags}">
@@ -173,7 +169,6 @@
                     </table>
                 </c:if>
             </div>
-            <!-- COLUMN 3: DONATION AND PATIENT PROCESSING -->
             <div class="panel">
                 <h3 class="processing-header">Processing Queue</h3>
                 <h4>Pending Patient Blood Requests</h4>
@@ -214,9 +209,17 @@
                                                <button type="submit" class="btn btn-prescreen">Pass Screen</button>
                                            </form>
                                        </c:if>
+                                       
+                                       <%-- ✅ FINAL FIX: Replaced link with a form to send a POST request for final approval. --%>
                                        <c:if test="${appt.status == 'PRE-SCREEN_PASSED'}">
-                                           <a href="${pageContext.request.contextPath}/approve-donation?donationId=${appt.donationId}" class="btn btn-approve">Confirm Donation</a>
+                                            <form action="approve-donation" method="POST" style="display: inline-block;">
+                                                <input type="hidden" name="donationId" value="${appt.donationId}">
+                                                <label for="donationDate-${appt.donationId}" style="font-weight: normal; font-size: 0.8em;">Date:</label>
+                                                <input type="date" id="donationDate-${appt.donationId}" name="donationDate" value="<%= java.time.LocalDate.now() %>" required style="padding: 5px; width: auto;">
+                                                <button type="submit" class="btn btn-approve">Complete</button>
+                                            </form>
                                        </c:if>
+
                                        <form action="update-donation-status" method="POST" style="display: inline;">
                                             <input type="hidden" name="donationId" value="${appt.donationId}">
                                             <input type="hidden" name="newStatus" value="CANCELLED">
@@ -229,7 +232,6 @@
                     </table>
                 </c:if>
                 <hr>
-                <!-- ✅ RESTORED: Pending Inventory (Awaiting Tests) Panel -->
                 <h4>Pending Inventory (Awaiting Tests)</h4>
                 <c:if test="${empty pendingBags}"><p class="empty-state">No bags awaiting tests.</p></c:if>
                 <c:if test="${not empty pendingBags}">
@@ -251,7 +253,6 @@
 
     <div id="toast-container"></div>
     <script>
-        // JavaScript for Toast Notifications
         document.addEventListener('DOMContentLoaded', function() {
             function showToast(message, type) {
                 if (!message || message.trim() === 'null') return;
@@ -268,4 +269,3 @@
     </script>
 </body>
 </html>
-
