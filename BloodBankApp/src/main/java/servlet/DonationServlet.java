@@ -1,10 +1,8 @@
 package servlet;
 
 import dao.DonationDAO;
-import dao.HospitalDAO;
-import dao.UserDAO; // ✅ ADDED: Import UserDAO for the eligibility check
+import dao.UserDAO;
 import model.Donation;
-import model.Hospital;
 import model.User;
 
 import jakarta.servlet.ServletException;
@@ -15,64 +13,83 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
-import java.util.List;
+import java.net.URLEncoder;
 
 @WebServlet("/donate")
 public class DonationServlet extends HttpServlet {
 
-    // This method shows the donation form or appointment details
+    /**
+     * ✅ FINAL VERSION: Handles GET requests for the donor dashboard.
+     * Logic is simplified to only handle security and forward to the JSP.
+     */
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         HttpSession session = req.getSession(false);
-        if (session == null || !"DONOR".equals(((User) session.getAttribute("user")).getRole())) {
-            res.sendRedirect("login.jsp");
+
+        if (session == null || session.getAttribute("user") == null || !"DONOR".equals(((User) session.getAttribute("user")).getRole())) {
+            res.sendRedirect(req.getContextPath() + "/login.jsp");
             return;
         }
-        User donor = (User) session.getAttribute("user");
-        
-        try {
-            Donation appointment = DonationDAO.getPendingAppointmentForDonor(donor.getId());
-            if (appointment != null) {
-                req.setAttribute("appointment", appointment);
-            } else {
-                List<Hospital> hospitals = HospitalDAO.getAllHospitals();
-                req.setAttribute("hospitals", hospitals);
-            }
-            req.getRequestDispatcher("donor.jsp").forward(req, res);
-        } catch (Exception e) {
-            throw new ServletException("Error loading donor page data", e);
-        }
+        req.getRequestDispatcher("donor.jsp").forward(req, res);
     }
 
- // In your DonationServlet.java, replace the doPost method.
-
- // In your DonationServlet.java, replace the doPost method.
-
+    /**
+     * ✅ FINAL VERSION: Handles POST requests for creating a new donation appointment.
+     * Includes a more robust eligibility check to prevent duplicate appointments.
+     */
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         HttpSession session = req.getSession(false);
+
+        if (session == null || session.getAttribute("user") == null) {
+            res.sendRedirect(req.getContextPath() + "/login.jsp");
+            return;
+        }
+
         User donor = (User) session.getAttribute("user");
+        String errorMessage = "";
 
         try {
-            // Eligibility Check remains the same...
-            java.time.LocalDate today = java.time.LocalDate.now();
-            java.sql.Date nextEligibleDate = UserDAO.getNextEligibleDate(donor.getId());
+            // --- Robust Eligibility Check ---
+            // 1. Check for an existing active appointment.
+            Donation existingAppointment = DonationDAO.getPendingAppointmentForDonor(donor.getId());
+            if (existingAppointment != null) {
+                errorMessage = "You already have a pending appointment and cannot book another.";
+            }
 
-            if (nextEligibleDate != null && today.isBefore(nextEligibleDate.toLocalDate())) {
-                req.setAttribute("errorMessage", "You are not yet eligible to donate. Your next eligible date is " + nextEligibleDate);
-                doGet(req, res);
-                return;
+            // 2. Check the donor's cooldown period.
+            if (errorMessage.isEmpty()) {
+                java.time.LocalDate today = java.time.LocalDate.now();
+                // ✅ FIXED: Fetch the full, fresh user object to get the eligibility date.
+                // This relies on the corrected UserDAO.getUserById() method.
+                User freshDonorData = UserDAO.getUserById(donor.getId());
+                java.sql.Date nextEligibleDate = freshDonorData.getNextEligibleDate();
+
+                if (nextEligibleDate != null && today.isBefore(nextEligibleDate.toLocalDate())) {
+                    errorMessage = "You are not yet eligible to donate. Your next eligible date is " + nextEligibleDate;
+                }
             }
             
-            // ✅ MODIFIED: Read the new date parameter from the form.
+            // If any error was found, redirect back to the form with a message.
+            if (!errorMessage.isEmpty()) {
+                String redirectURL = req.getContextPath() + "/donor.jsp?error=" + URLEncoder.encode(errorMessage, "UTF-8");
+                res.sendRedirect(redirectURL);
+                return;
+            }
+
+            // --- Process Appointment Request ---
             int hospitalId = Integer.parseInt(req.getParameter("hospitalId"));
-            int units = Integer.parseInt(req.getParameter("units")); // Added back for consistency
+            int units = Integer.parseInt(req.getParameter("units"));
             java.sql.Date appointmentDate = java.sql.Date.valueOf(req.getParameter("appointmentDate"));
 
-            DonationDAO.createDonationRequest(donor.getId(), hospitalId, units, appointmentDate);
-            
-            res.sendRedirect(req.getContextPath() + "/donate?success=Appointment+requested!");
+            DonationDAO.createDonationAppointment(donor.getId(), hospitalId, units, appointmentDate);
 
+            String successMessage = "Your appointment has been successfully requested!";
+            res.sendRedirect(req.getContextPath() + "/donor.jsp?success=" + URLEncoder.encode(successMessage, "UTF-8"));
+
+        } catch (NumberFormatException e) {
+            errorMessage = "Invalid form data was submitted. Please try again.";
+            res.sendRedirect(req.getContextPath() + "/donor.jsp?error=" + URLEncoder.encode(errorMessage, "UTF-8"));
         } catch (Exception e) {
             throw new ServletException("Error creating donation appointment", e);
         }

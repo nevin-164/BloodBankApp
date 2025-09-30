@@ -2,16 +2,15 @@
 <%@ page import="model.*, dao.*, java.util.*, model.BloodInventory, model.StockTransfer, model.Request" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
-    // Security check remains the same. The messages will now be handled by JavaScript.
+    // Security check: Ensures a valid hospital user is logged in.
     Hospital hospital = (Hospital) session.getAttribute("hospital");
     if (hospital == null) {
         response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
         return;
     }
-    String successMessage = (String) session.getAttribute("successMessage");
-    String errorMessage = (String) session.getAttribute("errorMessage");
-    if (successMessage != null) session.removeAttribute("successMessage");
-    if (errorMessage != null) session.removeAttribute("errorMessage");
+    // Retrieve one-time messages for the toast notifications from the request parameters.
+    String successMessage = request.getParameter("success");
+    String errorMessage = request.getParameter("error");
 %>
 <html>
 <head>
@@ -23,7 +22,7 @@
         body { 
             font-family: 'Poppins', sans-serif; 
             margin: 0; 
-            background: linear-gradient(to right top, #f4f6f9, #ffffff);
+            background: #f4f7f9;
             padding: 20px;
         }
         .container { 
@@ -32,7 +31,7 @@
             background: #ffffff; 
             padding: 20px 40px; 
             border-radius: 15px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
         }
         .header { 
             display: flex; 
@@ -54,16 +53,17 @@
         h3.incoming-header::before { content: '🚚'; margin-right: 10px; font-size: 1.5rem; }
         h3.processing-header::before { content: '📋'; margin-right: 10px; font-size: 1.5rem; }
         .dashboard-layout { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9rem;}
-        th { background-color: #f8f9fa; font-weight: 600; color: #333; }
-        tbody tr:hover { background-color: #fdf5f5; transition: background-color 0.2s; }
-        .actions-cell { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        a.btn, button.btn { border: none; color: white; padding: 8px 15px; border-radius: 20px; text-decoration: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        a.btn:hover, button.btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-        .approve-btn { background: linear-gradient(45deg, #28a745, #218838); }
-        .decline-btn { background: linear-gradient(45deg, #dc3545, #c82333); }
-        .call-btn { background: linear-gradient(45deg, #007bff, #0056b3); }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .data-table th, .data-table td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9rem;}
+        .data-table th { background-color: #f8f9fa; font-weight: 600; color: #333; }
+        .data-table tbody tr:hover { background-color: #fdf5f5; transition: background-color 0.2s; }
+        .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .btn { border: none; color: white; padding: 8px 15px; border-radius: 20px; text-decoration: none; cursor: pointer; font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        .btn-approve { background: linear-gradient(45deg, #28a745, #218838); }
+        .btn-decline { background: linear-gradient(45deg, #dc3545, #c82333); }
+        .btn-call { background: linear-gradient(45deg, #007bff, #0056b3); }
+        .btn-prescreen { background: linear-gradient(45deg, #ffc107, #e0a800); color: #212529; }
         .panel { padding: 25px; border-radius: 10px; background-color: #fff; height: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #555;}
@@ -89,27 +89,24 @@
     <div class="container">
         <div class="header">
             <h2>PLASMIC Hospital Portal</h2>
-            <a href="${pageContext.request.contextPath}/logout">Logout, <%= hospital.getName() %></a>
+            <a href="${pageContext.request.contextPath}/logout">Logout, <c:out value="${hospital.name}"/></a>
         </div>
         
         <div class="dashboard-layout">
-            <!-- COLUMN 1: STOCK MANAGEMENT -->
             <div class="panel">
                 <h3 class="stock-header">Stock & Transfers</h3>
                 <h4>Current Cleared Stock</h4>
-                <table>
+                <table class="data-table">
                     <thead><tr><th>Blood Group</th><th>Units</th></tr></thead>
                     <tbody>
                         <c:forEach var="entry" items="${currentStock}">
                             <tr>
-                                <td>${entry.key}</td>
-                                <td>${entry.value}</td>
+                                <td><c:out value="${entry.key}"/></td>
+                                <td><c:out value="${entry.value}"/></td>
                             </tr>
                         </c:forEach>
                         <c:if test="${empty currentStock}">
-                            <tr>
-                                <td colspan="2" class="empty-state">No cleared stock.</td>
-                            </tr>
+                            <tr><td colspan="2" class="empty-state">No cleared stock.</td></tr>
                         </c:if>
                     </tbody>
                 </table>
@@ -118,12 +115,12 @@
                 <form action="${pageContext.request.contextPath}/manual-add-stock" method="post">
                     <div class="form-group"><label>Blood Group:</label><select name="bloodGroup" required><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
                     <div class="form-group"><label>Units to Add:</label><input type="number" name="units" min="1" required></div>
-                    <button type="submit" class="btn approve-btn">Add to Inventory</button>
+                    <button type="submit" class="btn btn-approve">Add to Inventory</button>
                 </form>
                 <form action="${pageContext.request.contextPath}/manual-remove-stock" method="post" style="margin-top: 15px;">
                      <div class="form-group"><label>Blood Group:</label><select name="bloodGroup" required><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
                     <div class="form-group"><label>Units to Remove:</label><input type="number" name="units" min="1" required></div>
-                    <button type="submit" class="btn decline-btn" onclick="return confirm('Are you sure you want to permanently remove these units? This action cannot be undone.');">Remove from Inventory</button>
+                    <button type="submit" class="btn btn-decline" onclick="return confirm('Are you sure you want to permanently remove these units? This action cannot be undone.');">Remove from Inventory</button>
                 </form>
                 <hr>
                 <h4>Request Stock Transfer</h4>
@@ -131,23 +128,22 @@
                     <div class="form-group"><label>Request From:</label><select name="supplyingHospitalId" required><c:forEach var="h" items="${otherHospitals}"><option value="${h.id}">${h.name}</option></c:forEach></select></div>
                     <div class="form-group"><label>Blood Group:</label><select name="bloodGroup" required><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
                     <div class="form-group"><label>Units:</label><input type="number" name="units" min="1" required></div>
-                    <button type="submit" class="btn call-btn">Submit Request</button>
+                    <button type="submit" class="btn btn-call">Submit Request</button>
                 </form>
             </div>
-            <!-- COLUMN 2: INCOMING ITEMS -->
             <div class="panel">
                 <h3 class="incoming-header">Incoming Queue</h3>
                 <h4>Incoming Shipments (In-Transit)</h4>
                 <c:if test="${empty inTransitBags}"><p class="empty-state">No shipments in transit.</p></c:if>
                 <c:if test="${not empty inTransitBags}">
                     <a href="${pageContext.request.contextPath}/receive-all" class="btn receive-all-btn" onclick="return confirm('Receive all pending shipments?');">Receive All Shipments</a>
-                    <table>
+                    <table class="data-table">
                         <thead><tr><th>Bag ID</th><th>Blood Group</th><th>Action</th></tr></thead>
                         <tbody>
                             <c:forEach var="bag" items="${inTransitBags}">
                                 <tr>
                                     <td>${bag.bagId}</td><td>${bag.bloodGroup}</td>
-                                    <td class="actions-cell"><a href="${pageContext.request.contextPath}/receive-transfer?bagId=${bag.bagId}" class="btn approve-btn" onclick="return confirm('Mark bag as received?');">Receive</a></td>
+                                    <td class="actions"><a href="${pageContext.request.contextPath}/receive-transfer?bagId=${bag.bagId}" class="btn btn-approve" onclick="return confirm('Mark bag as received?');">Receive</a></td>
                                 </tr>
                             </c:forEach>
                         </tbody>
@@ -157,15 +153,15 @@
                 <h4>Incoming Stock Transfer Requests</h4>
                 <c:if test="${empty pendingTransfers}"><p class="empty-state">No incoming requests.</p></c:if>
                 <c:if test="${not empty pendingTransfers}">
-                    <table>
+                    <table class="data-table">
                         <thead><tr><th>From</th><th>Group</th><th>Units</th><th>Action</th></tr></thead>
                         <tbody>
                             <c:forEach var="transfer" items="${pendingTransfers}">
                                 <tr>
-                                    <td>${transfer.requestingHospitalName}</td><td>${transfer.bloodGroup}</td><td>${transfer.units}</td>
-                                    <td class="actions-cell">
-                                        <a href="${pageContext.request.contextPath}/approve-transfer?transferId=${transfer.transferId}&status=APPROVED" class="btn approve-btn" onclick="return confirm('Approve this transfer?');">Approve</a>
-                                        <a href="${pageContext.request.contextPath}/approve-transfer?transferId=${transfer.transferId}&status=DECLINED" class="btn decline-btn" onclick="return confirm('Decline this transfer?');">Decline</a>
+                                    <td><c:out value="${transfer.requestingHospitalName}"/></td><td><c:out value="${transfer.bloodGroup}"/></td><td><c:out value="${transfer.units}"/></td>
+                                    <td class="actions">
+                                        <a href="${pageContext.request.contextPath}/approve-transfer?transferId=${transfer.transferId}&status=APPROVED" class="btn btn-approve" onclick="return confirm('Approve this transfer?');">Approve</a>
+                                        <a href="${pageContext.request.contextPath}/approve-transfer?transferId=${transfer.transferId}&status=DECLINED" class="btn btn-decline" onclick="return confirm('Decline this transfer?');">Decline</a>
                                     </td>
                                 </tr>
                             </c:forEach>
@@ -173,25 +169,22 @@
                     </table>
                 </c:if>
             </div>
-            <!-- COLUMN 3: DONATION AND INVENTORY PROCESSING -->
             <div class="panel">
                 <h3 class="processing-header">Processing Queue</h3>
-                
-                <!-- ✅ FIXED: Re-added the Pending Patient Blood Requests panel -->
                 <h4>Pending Patient Blood Requests</h4>
                 <c:if test="${empty pendingRequests}"><p class="empty-state">No pending patient requests.</p></c:if>
                 <c:if test="${not empty pendingRequests}">
-                    <table>
+                    <table class="data-table">
                        <thead><tr><th>Patient</th><th>Group</th><th>Units</th><th>Action</th></tr></thead>
                        <tbody>
                            <c:forEach var="req" items="${pendingRequests}">
                                <tr>
-                                   <td>${req.patientName}</td>
-                                   <td>${req.bloodGroup}</td>
-                                   <td>${req.units}</td>
-                                   <td class="actions-cell">
-                                       <a href="${pageContext.request.contextPath}/approve-request?requestId=${req.id}" class="btn approve-btn">Approve</a>
-                                       <a href="${pageContext.request.contextPath}/decline-request?requestId=${req.id}" class="btn decline-btn">Decline</a>
+                                   <td><c:out value="${req.patientName}"/></td>
+                                   <td><c:out value="${req.bloodGroup}"/></td>
+                                   <td><c:out value="${req.units}"/></td>
+                                   <td class="actions">
+                                       <a href="${pageContext.request.contextPath}/approve-request?requestId=${req.requestId}" class="btn btn-approve">Approve</a>
+                                       <a href="${pageContext.request.contextPath}/decline-request?requestId=${req.requestId}" class="btn btn-decline">Decline</a>
                                    </td>
                                </tr>
                            </c:forEach>
@@ -199,20 +192,39 @@
                     </table>
                 </c:if>
                 <hr>
-
                 <h4>Pending Donation Appointments</h4>
                 <c:if test="${empty pendingDonations}"><p class="empty-state">No pending appointments.</p></c:if>
                 <c:if test="${not empty pendingDonations}">
-                    <table>
+                    <table class="data-table">
                        <thead><tr><th>Donor</th><th>Status</th><th>Action</th></tr></thead>
                        <tbody>
                            <c:forEach var="appt" items="${pendingDonations}">
                                <tr>
-                                   <td>${appt.donorName}</td><td>${appt.status}</td>
-                                   <td class="actions-cell">
-                                       <c:if test="${appt.status == 'PENDING'}"><a href="${pageContext.request.contextPath}/update-donation-status?donationId=${appt.donationId}&status=PRE-SCREEN_PASSED" class="btn approve-btn">Pass Screen</a></c:if>
-                                       <c:if test="${appt.status == 'PRE-SCREEN_PASSED'}"><a href="${pageContext.request.contextPath}/approve-donation?donationId=${appt.donationId}" class="btn approve-btn">Confirm Donation</a></c:if>
-                                       <a href="${pageContext.request.contextPath}/update-donation-status?donationId=${appt.donationId}&status=CANCELLED" class="btn decline-btn">Cancel</a>
+                                   <td><c:out value="${appt.donorName}"/></td><td><c:out value="${appt.status}"/></td>
+                                   <td class="actions">
+                                       <c:if test="${appt.status == 'PENDING'}">
+                                           <form action="update-donation-status" method="POST" style="display: inline;">
+                                               <input type="hidden" name="donationId" value="${appt.donationId}">
+                                               <input type="hidden" name="newStatus" value="PRE-SCREEN_PASSED">
+                                               <button type="submit" class="btn btn-prescreen">Pass Screen</button>
+                                           </form>
+                                       </c:if>
+                                       
+                                       <%-- ✅ FINAL FIX: Replaced link with a form to send a POST request for final approval. --%>
+                                       <c:if test="${appt.status == 'PRE-SCREEN_PASSED'}">
+                                            <form action="approve-donation" method="POST" style="display: inline-block;">
+                                                <input type="hidden" name="donationId" value="${appt.donationId}">
+                                                <label for="donationDate-${appt.donationId}" style="font-weight: normal; font-size: 0.8em;">Date:</label>
+                                                <input type="date" id="donationDate-${appt.donationId}" name="donationDate" value="<%= java.time.LocalDate.now() %>" required style="padding: 5px; width: auto;">
+                                                <button type="submit" class="btn btn-approve">Complete</button>
+                                            </form>
+                                       </c:if>
+
+                                       <form action="update-donation-status" method="POST" style="display: inline;">
+                                            <input type="hidden" name="donationId" value="${appt.donationId}">
+                                            <input type="hidden" name="newStatus" value="CANCELLED">
+                                            <button type="submit" class="btn btn-decline">Cancel</button>
+                                       </form>
                                    </td>
                                </tr>
                            </c:forEach>
@@ -223,13 +235,13 @@
                 <h4>Pending Inventory (Awaiting Tests)</h4>
                 <c:if test="${empty pendingBags}"><p class="empty-state">No bags awaiting tests.</p></c:if>
                 <c:if test="${not empty pendingBags}">
-                    <table>
+                    <table class="data-table">
                        <thead><tr><th>Bag ID</th><th>Group</th><th>Donated On</th><th>Action</th></tr></thead>
                        <tbody>
                            <c:forEach var="bag" items="${pendingBags}">
                                <tr>
                                    <td>${bag.bagId}</td><td>${bag.bloodGroup}</td><td>${bag.dateDonated}</td>
-                                   <td class="actions-cell"><a href="${pageContext.request.contextPath}/update-inventory-status?bagId=${bag.bagId}&status=CLEARED" class="btn approve-btn" onclick="return confirm('Clear this bag for use?');">Clear</a></td>
+                                   <td class="actions"><a href="${pageContext.request.contextPath}/update-inventory-status?bagId=${bag.bagId}&status=CLEARED" class="btn btn-approve" onclick="return confirm('Clear this bag for use?');">Clear</a></td>
                                </tr>
                            </c:forEach>
                        </tbody>
@@ -240,32 +252,20 @@
     </div>
 
     <div id="toast-container"></div>
-
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             function showToast(message, type) {
+                if (!message || message.trim() === 'null') return;
                 const container = document.getElementById('toast-container');
                 const toast = document.createElement('div');
                 toast.className = `toast ${type}`;
-                toast.textContent = message;
+                toast.textContent = decodeURIComponent(message.replace(/\+/g, ' '));
                 container.appendChild(toast);
-                setTimeout(() => {
-                    toast.style.animation = 'fadeOut 0.5s forwards';
-                    setTimeout(() => {
-                        toast.remove();
-                    }, 500);
-                }, 4500);
+                setTimeout(() => toast.remove(), 5000);
             }
-            const successMessage = "<%= successMessage != null ? successMessage : "" %>";
-            const errorMessage = "<%= errorMessage != null ? errorMessage : "" %>";
-            if (successMessage) {
-                showToast(successMessage, 'success');
-            }
-            if (errorMessage) {
-                showToast(errorMessage, 'error');
-            }
+            showToast("<%= successMessage %>", 'success');
+            showToast("<%= errorMessage %>", 'error');
         });
     </script>
 </body>
 </html>
-
