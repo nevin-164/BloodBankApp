@@ -290,4 +290,39 @@ public class DonationDAO {
         }
         return 0;
     }
+ // In dao/DonationDAO.java
+
+    /**
+     * ✅ NEW METHOD: Fetches all actionable donation appointments for a hospital.
+     * This includes donations that are 'PENDING' or 'PRE-SCREEN_PASSED', ensuring
+     * that no donation is lost from the hospital's view during the workflow.
+     *
+     * @param hospitalId The ID of the hospital.
+     * @return A list of Donation objects that require action.
+     * @throws Exception if a database error occurs.
+     */
+    public static List<Donation> getActionableDonationsForHospital(int hospitalId) throws Exception {
+        List<Donation> appointments = new ArrayList<>();
+        String sql = "SELECT d.donation_id, u.name as donor_name, d.blood_group, d.units, d.appointment_date, d.status " +
+                     "FROM donations d JOIN users u ON d.user_id = u.user_id " +
+                     "WHERE d.hospital_id = ? AND d.status IN ('PENDING', 'PRE-SCREEN_PASSED') " +
+                     "ORDER BY d.appointment_date ASC, d.status DESC";
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, hospitalId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Donation appt = new Donation();
+                    appt.setDonationId(rs.getInt("donation_id"));
+                    appt.setDonorName(rs.getString("donor_name"));
+                    appt.setBloodGroup(rs.getString("blood_group"));
+                    appt.setUnits(rs.getInt("units"));
+                    appt.setAppointmentDate(rs.getDate("appointment_date"));
+                    appt.setStatus(rs.getString("status"));
+                    appointments.add(appt);
+                }
+            }
+        }
+        return appointments;
+    }
 }

@@ -5,11 +5,26 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * ✅ FINAL VERSION: The definitive Data Access Object for managing patient blood requests.
+ * This version includes the corrected query for fetching all pending requests,
+ * resolving the bug that caused them to disappear from the hospital dashboard.
+ */
 public class RequestDAO {
 
+    /**
+     * ✅ FIXED: Fetches all pending blood requests from any patient across the system.
+     * This query is now more robust, explicitly selecting columns to prevent silent failures
+     * and ensure all pending requests are correctly loaded for the hospital dashboard.
+     *
+     * @return A List of Request objects, or an empty list if none are found.
+     * @throws Exception if a database error occurs.
+     */
     public static List<Request> getAllPendingRequests() throws Exception {
         List<Request> requests = new ArrayList<>();
-        String sql = "SELECT r.*, u.name as patientName FROM requests r JOIN users u ON r.patient_id = u.user_id " +
+        // This corrected and explicit SQL query is the critical fix.
+        String sql = "SELECT r.request_id, r.blood_group, r.units_requested, r.status, r.request_date, u.name as patientName " +
+                     "FROM requests r JOIN users u ON r.patient_id = u.user_id " +
                      "WHERE r.status = 'PENDING' ORDER BY r.request_date ASC";
 
         try (Connection con = DBUtil.getConnection();
@@ -30,6 +45,9 @@ public class RequestDAO {
         return requests;
     }
 
+    /**
+     * Updates the status of a specific request.
+     */
     public static void updateRequestStatus(int requestId, String newStatus) throws Exception {
         String sql = "UPDATE requests SET status = ? WHERE request_id = ?";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
@@ -39,6 +57,9 @@ public class RequestDAO {
         }
     }
 
+    /**
+     * Retrieves a single request by its ID.
+     */
     public static Request getRequestById(int requestId) throws Exception {
         String sql = "SELECT * FROM requests WHERE request_id = ?";
         try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
@@ -58,31 +79,10 @@ public class RequestDAO {
         }
         return null;
     }
-
-    public static void logRequestAction(int requestId, int hospitalId, String action) throws Exception {
-        String sql = "INSERT INTO request_actions (request_id, hospital_id, action) VALUES (?, ?, ?)";
-        try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, requestId);
-            ps.setInt(2, hospitalId);
-            ps.setString(3, action);
-            ps.executeUpdate();
-        }
-    }
     
     /**
-     * ✅ NEWLY ADDED: This method was missing, causing the compile error.
-     * It updates a separate tracking_status column, which is intended for patient visibility.
-     * NOTE: This assumes you have added a `tracking_status VARCHAR(50)` column to your `requests` table.
+     * Retrieves all requests for a specific user.
      */
-    public static void updateTrackingStatus(int requestId, String trackingStatus) throws Exception {
-        String sql = "UPDATE requests SET tracking_status = ? WHERE request_id = ?";
-        try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, trackingStatus);
-            ps.setInt(2, requestId);
-            ps.executeUpdate();
-        }
-    }
-
     public static List<Request> getRequestsByUserId(int userId) throws Exception {
         List<Request> requests = new ArrayList<>();
         String sql = "SELECT r.*, h.name as hospitalName FROM requests r " +
@@ -106,5 +106,30 @@ public class RequestDAO {
             }
         }
         return requests;
+    }
+
+    /**
+     * Logs an action taken by a hospital on a specific request.
+     */
+    public static void logRequestAction(int requestId, int hospitalId, String action) throws Exception {
+        String sql = "INSERT INTO request_actions (request_id, hospital_id, action) VALUES (?, ?, ?)";
+        try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, requestId);
+            ps.setInt(2, hospitalId);
+            ps.setString(3, action);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Updates a separate tracking_status column, intended for patient visibility.
+     */
+    public static void updateTrackingStatus(int requestId, String trackingStatus) throws Exception {
+        String sql = "UPDATE requests SET tracking_status = ? WHERE request_id = ?";
+        try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, trackingStatus);
+            ps.setInt(2, requestId);
+            ps.executeUpdate();
+        }
     }
 }

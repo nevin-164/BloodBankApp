@@ -110,6 +110,44 @@
                         </c:if>
                     </tbody>
                 </table>
+                
+                <%-- ✅ FINAL FIX: New section for Emergency Donor Contacts --%>
+                <hr>
+                <h4>Emergency Donor Contacts</h4>
+                <p style="font-size: 0.8em; color: #666;">
+                    This list shows available emergency donors for blood types currently out of stock.
+                </p>
+
+                <c:if test="${empty emergencyContacts}">
+                    <p class="empty-state">No emergency contacts needed at this time.</p>
+                </c:if>
+
+                <c:if test="${not empty emergencyContacts}">
+                    <c:forEach var="entry" items="${emergencyContacts}">
+                        <h5 style="color: #c9302c; margin-top: 20px;">Needed: ${entry.key}</h5>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Contact</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <c:forEach var="donor" items="${entry.value}">
+                                    <tr>
+                                        <td><c:out value="${donor.name}"/></td>
+                                        <td><c:out value="${donor.email}"/></td>
+                                        <td>
+                                            <a href="tel:${donor.contactNumber}" class="btn btn-call">Call Now</a>
+                                        </td>
+                                    </tr>
+                                </c:forEach>
+                            </tbody>
+                        </table>
+                    </c:forEach>
+                </c:if>
+
                 <hr>
                 <h4>Manual Stock Adjustment</h4>
                 <form action="${pageContext.request.contextPath}/manual-add-stock" method="post">
@@ -200,7 +238,7 @@
                        <tbody>
                            <c:forEach var="appt" items="${pendingDonations}">
                                <tr>
-                                   <td><c:out value="${appt.donorName}"/></td><td><c:out value="${appt.status}"/></td>
+                                   <td><c:out value="${appt.donorName}"/></td><td><c:out value="${appt.status.replace('_', ' ')}"/></td>
                                    <td class="actions">
                                        <c:if test="${appt.status == 'PENDING'}">
                                            <form action="update-donation-status" method="POST" style="display: inline;">
@@ -210,7 +248,6 @@
                                            </form>
                                        </c:if>
                                        
-                                       <%-- ✅ FINAL FIX: Replaced link with a form to send a POST request for final approval. --%>
                                        <c:if test="${appt.status == 'PRE-SCREEN_PASSED'}">
                                             <form action="approve-donation" method="POST" style="display: inline-block;">
                                                 <input type="hidden" name="donationId" value="${appt.donationId}">
