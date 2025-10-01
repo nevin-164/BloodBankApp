@@ -208,25 +208,19 @@
                                    <td>${appt.donorName}</td><td>${appt.status.replace('_', ' ')}</td>
                                    <td class="actions">
                                        <c:if test="${appt.status == 'PENDING'}">
-                                           <form action="${pageContext.request.contextPath}/update-donation-status" method="POST" style="display: inline;">
+                                           <form action="update-donation-status" method="POST" style="display: inline;">
                                                <input type="hidden" name="donationId" value="${appt.donationId}">
                                                <input type="hidden" name="newStatus" value="PRE-SCREEN_PASSED">
                                                <button type="submit" class="btn btn-prescreen">Pass Screen</button>
                                            </form>
                                        </c:if>
                                        <c:if test="${appt.status == 'PRE-SCREEN_PASSED'}">
-                                            <!-- ====== UPDATED: require manual date selection before approving ====== -->
-                                            <form action="${pageContext.request.contextPath}/approve-donation" method="POST" style="display:inline;">
+                                            <form action="approve-donation" method="POST">
                                                 <input type="hidden" name="donationId" value="${appt.donationId}">
-                                                
-                                                <!-- Manual donation date picker (required) -->
-                                                <input type="date" id="donationDate-${appt.donationId}" name="donationDate" required
-                                                       style="padding:6px; border-radius:6px; border:1px solid #ccc; margin-right:6px;">
-
                                                 <button type="submit" class="btn btn-approve">Complete</button>
                                             </form>
                                        </c:if>
-                                       <form action="${pageContext.request.contextPath}/update-donation-status" method="POST" style="display: inline;">
+                                       <form action="update-donation-status" method="POST" style="display: inline;">
                                             <input type="hidden" name="donationId" value="${appt.donationId}">
                                             <input type="hidden" name="newStatus" value="CANCELLED">
                                             <button type="submit" class="btn btn-decline">Cancel</button>
@@ -285,12 +279,7 @@
                 const container = document.getElementById('toast-container');
                 const toast = document.createElement('div');
                 toast.className = `toast ${type}`;
-                // decode server-encoded query param text if needed
-                try {
-                    toast.textContent = decodeURIComponent(message.replace(/\+/g, ' '));
-                } catch (e) {
-                    toast.textContent = message;
-                }
+                toast.textContent = decodeURIComponent(message.replace(/\+/g, ' '));
                 container.appendChild(toast);
                 setTimeout(() => toast.remove(), 5000);
             }
