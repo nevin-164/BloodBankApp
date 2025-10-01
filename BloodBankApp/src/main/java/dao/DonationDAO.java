@@ -230,13 +230,26 @@ public class DonationDAO {
     }
 
     public static Donation getDonationById(int donationId) throws Exception {
-        try (Connection con = DBUtil.getConnection()) {
-            return getDonationById(donationId, con);
+        String sql = "SELECT * FROM donations WHERE donation_id = ?";
+        Donation donation = null;
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, donationId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    donation = new Donation();
+                    donation.setDonationId(rs.getInt("donation_id"));
+                    donation.setUserId(rs.getInt("user_id"));
+                    donation.setHospitalId(rs.getInt("hospital_id"));
+                    // ... set other properties if needed
+                }
+            }
         }
+        return donation;
     }
 
     public static int getDonationCountForUser(int userId) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? AND status = 'APPROVED'";
+        String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? AND status = 'COMPLETED'";
         try (Connection con = DBUtil.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, userId);
@@ -277,7 +290,7 @@ public class DonationDAO {
 
     public static int getDonationCountInPastYear(int userId) throws SQLException {
         String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? " +
-                     "AND status = 'APPROVED' " +
+                     "AND status = 'COMPLETED' " +
                      "AND donation_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
         try (Connection con = DBUtil.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -290,6 +303,7 @@ public class DonationDAO {
         }
         return 0;
     }
+
  // In dao/DonationDAO.java
 
     /**
@@ -301,9 +315,74 @@ public class DonationDAO {
      * @return A list of Donation objects that require action.
      * @throws Exception if a database error occurs.
      */
+    public static void approveAndProcessDonation(int donationId, Date donationDate) throws Exception {
+        // ✅ CRITICAL FIX: The JOIN condition now correctly uses d.user_id
+        String findDonationSql = "SELECT d.*, u.blood_group FROM donations d JOIN users u ON d.user_id = u.user_id WHERE d.donation_id = ?";
+        String updateDonationSql = "UPDATE donations SET status = 'COMPLETED', donation_date = ? WHERE donation_id = ?";
+        String createBagSql = "INSERT INTO blood_inventory (donation_id, hospital_id, blood_group, date_donated, expiry_date, inventory_status) VALUES (?, ?, ?, ?, DATE_ADD(?, INTERVAL 42 DAY), 'PENDING_TESTS')";
+        
+        Connection con = null;
+        try {
+            con = DBUtil.getConnection();
+            con.setAutoCommit(false); // Start transaction
+
+            // Step 1: Get donation details
+            String bloodGroup = null;
+            int hospitalId = 0;
+
+            try (PreparedStatement ps = con.prepareStatement(findDonationSql)) {
+                ps.setInt(1, donationId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        bloodGroup = rs.getString("blood_group");
+                        hospitalId = rs.getInt("hospital_id");
+                    }
+                }
+            }
+            
+            if (bloodGroup == null) {
+                throw new SQLException("Donation or associated donor's blood group not found.");
+            }
+
+            // Step 2: Update the donation status with the manual date
+            try (PreparedStatement ps = con.prepareStatement(updateDonationSql)) {
+                ps.setDate(1, donationDate);
+                ps.setInt(2, donationId);
+                ps.executeUpdate();
+            }
+
+            // Step 3: Create the blood bag in inventory with the manual date
+            try (PreparedStatement ps = con.prepareStatement(createBagSql)) {
+                ps.setInt(1, donationId);
+                ps.setInt(2, hospitalId);
+                ps.setString(3, bloodGroup);
+                ps.setDate(4, donationDate);
+                ps.setDate(5, donationDate); // For the expiry date calculation
+                ps.executeUpdate();
+            }
+
+            con.commit(); // Commit transaction
+
+        } catch (Exception e) {
+            if (con != null) {
+                con.rollback(); // Roll back on error
+            }
+            throw e; // Re-throw the exception
+        } finally {
+            if (con != null) {
+                con.setAutoCommit(true);
+                con.close();
+            }
+        }
+    }
+
+
+    /**
+     * Fetches all actionable donation appointments for a hospital (Pending or Pre-Screen Passed).
+     */
     public static List<Donation> getActionableDonationsForHospital(int hospitalId) throws Exception {
         List<Donation> appointments = new ArrayList<>();
-        String sql = "SELECT d.donation_id, u.name as donor_name, d.blood_group, d.units, d.appointment_date, d.status " +
+        String sql = "SELECT d.donation_id, u.name as donor_name, d.status " +
                      "FROM donations d JOIN users u ON d.user_id = u.user_id " +
                      "WHERE d.hospital_id = ? AND d.status IN ('PENDING', 'PRE-SCREEN_PASSED') " +
                      "ORDER BY d.appointment_date ASC, d.status DESC";
@@ -315,9 +394,6 @@ public class DonationDAO {
                     Donation appt = new Donation();
                     appt.setDonationId(rs.getInt("donation_id"));
                     appt.setDonorName(rs.getString("donor_name"));
-                    appt.setBloodGroup(rs.getString("blood_group"));
-                    appt.setUnits(rs.getInt("units"));
-                    appt.setAppointmentDate(rs.getDate("appointment_date"));
                     appt.setStatus(rs.getString("status"));
                     appointments.add(appt);
                 }

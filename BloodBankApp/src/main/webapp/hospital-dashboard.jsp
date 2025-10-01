@@ -3,12 +3,13 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
-    // Security check and data retrieval
+    // Security check: Ensures a valid hospital user is logged in.
     Hospital hospital = (Hospital) session.getAttribute("hospital");
     if (hospital == null) {
         response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
         return;
     }
+    // Retrieve one-time messages for the toast notifications from the request parameters.
     String successMessage = request.getParameter("success");
     String errorMessage = request.getParameter("error");
 %>
@@ -19,9 +20,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Poppins', sans-serif; margin: 0; background: #f4f7f9; padding: 20px; }
-        .container { max-width: 1400px; margin: 0 auto; background: #ffffff; padding: 20px 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
-        .header { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, #d9534f 0%, #c9302c 100%); color: white; padding: 20px 30px; margin: -20px -40px 30px -40px; border-radius: 15px 15px 0 0; flex-wrap: wrap; gap: 15px; }
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            margin: 0; 
+            background: #f4f7f9;
+            padding: 20px;
+        }
+        .container { 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            background: #ffffff; 
+            padding: 20px 40px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
+        }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: linear-gradient(90deg, #d9534f 0%, #c9302c 100%);
+            color: white;
+            padding: 20px 30px;
+            margin: -20px -40px 30px -40px;
+            border-radius: 15px 15px 0 0;
+            flex-wrap: wrap; 
+            gap: 15px; 
+        }
         .header h2 { color: white; margin: 0; font-weight: 700; }
         .header a { color: white; text-decoration: none; font-weight: 600; padding: 8px 15px; border: 1px solid white; border-radius: 20px; transition: all 0.3s ease; }
         .header a:hover { background-color: white; color: #d9534f; }
@@ -42,26 +66,27 @@
         .btn-call { background: linear-gradient(45deg, #007bff, #0056b3); }
         .btn-warning { background: linear-gradient(45deg, #ffc107, #e0a800); color: #212529; }
         .btn-prescreen { background: linear-gradient(45deg, #ffc107, #e0a800); color: #212529; }
-        .panel { padding: 25px; border-radius: 10px; background-color: #fff; height: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .panel { padding: 25px; border-radius: 10px; background-color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #555;}
         .form-group select, .form-group input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; transition: border-color 0.2s; }
         .form-group select:focus, .form-group input:focus { border-color: #d9534f; outline: none; }
         .form-group button { width: 100%; padding: 12px; }
         .empty-state { color: #6c757d; font-style: italic; margin-top: 15px; text-align: center; padding: 20px; }
+        .receive-all-btn { background: linear-gradient(45deg, #17a2b8, #138496); width: 100%; margin-top: 15px; }
         hr { margin:25px 0; border: 0; border-top: 1px solid #eee; }
 
         .modal { display: none; position: fixed; z-index: 1001; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
         .modal-content { background-color: #fefefe; margin: 15% auto; padding: 20px; border-radius: 10px; width: 80%; max-width: 500px; }
-        .modal-header { padding: 10px 0; border-bottom: 1px solid #eee; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header { padding: 10px 0; border-bottom: 1px solid #eee; margin-bottom: 20px; }
         .modal-header h4 { margin: 0; color: #d9534f; }
-        .close-btn { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
         .donor-list label { display: block; padding: 10px; border-radius: 5px; margin-bottom: 5px; cursor: pointer; transition: background-color 0.2s; }
         .donor-list label:hover { background-color: #f5f5f5; }
         .donor-list input { margin-right: 15px; transform: scale(1.2); }
         .modal-footer { padding-top: 20px; text-align: right; border-top: 1px solid #eee; margin-top: 20px; }
         .btn-confirm { border-radius: 8px; width: auto; }
-        
+
         #toast-container { position: fixed; top: 20px; right: 20px; z-index: 1000; }
         .toast { padding: 15px 25px; margin-bottom: 10px; border-radius: 8px; color: white; font-weight: 600; box-shadow: 0 5px 15px rgba(0,0,0,0.2); animation: slideIn 0.5s, fadeOut 0.5s 4.5s; }
         .toast.success { background-color: #28a745; }
@@ -88,24 +113,39 @@
                     <thead><tr><th>Blood Group</th><th>Units</th></tr></thead>
                     <tbody>
                         <c:forEach var="entry" items="${currentStock}">
-                            <tr><td>${entry.key}</td><td>${entry.value}</td></tr>
+                            <tr>
+                                <td><c:out value="${entry.key}"/></td>
+                                <td><c:out value="${entry.value}"/></td>
+                            </tr>
                         </c:forEach>
-                        <c:if test="${empty currentStock}"><td colspan="2" class="empty-state">No cleared stock.</td></c:if>
+                        <c:if test="${empty currentStock}">
+                            <tr><td colspan="2" class="empty-state">No cleared stock.</td></tr>
+                        </c:if>
                     </tbody>
                 </table>
                 
                 <hr>
                 <h4>Emergency Donor Contacts</h4>
-                <p style="font-size: 0.8em; color: #666;">Available donors for out-of-stock blood types.</p>
-                <c:if test="${empty emergencyContacts}"><p class="empty-state">No emergency contacts needed.</p></c:if>
+                <p style="font-size: 0.8em; color: #666;">
+                    This list shows available emergency donors for blood types currently out of stock.
+                </p>
+                <c:if test="${empty emergencyContacts}">
+                    <p class="empty-state">No emergency contacts needed at this time.</p>
+                </c:if>
                 <c:if test="${not empty emergencyContacts}">
                     <c:forEach var="entry" items="${emergencyContacts}">
                         <h5 style="color: #c9302c; margin-top: 20px;">Needed: ${entry.key}</h5>
                         <table class="data-table">
-                            <thead><tr><th>Name</th><th>Contact</th><th>Action</th></tr></thead>
+                            <thead>
+                                <tr><th>Name</th><th>Contact</th><th>Action</th></tr>
+                            </thead>
                             <tbody>
                                 <c:forEach var="donor" items="${entry.value}">
-                                    <tr><td>${donor.name}</td><td>${donor.email}</td><td><a href="tel:${donor.contactNumber}" class="btn btn-call">Call</a></td></tr>
+                                    <tr>
+                                        <td><c:out value="${donor.name}"/></td>
+                                        <td><c:out value="${donor.email}"/></td>
+                                        <td><a href="tel:${donor.contactNumber}" class="btn btn-call">Call Now</a></td>
+                                    </tr>
                                 </c:forEach>
                             </tbody>
                         </table>
@@ -117,7 +157,7 @@
                 <form action="${pageContext.request.contextPath}/manual-add-stock" method="post">
                     <div class="form-group"><label>Blood Group:</label><select name="bloodGroup" required><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
                     <div class="form-group"><label>Units to Add:</label><input type="number" name="units" min="1" required></div>
-                    <button type="submit" class="btn btn-approve">Add Stock</button>
+                    <button type="submit" class="btn btn-approve">Add to Inventory</button>
                 </form>
                 <hr>
                 <h4>Request Stock Transfer</h4>
@@ -139,7 +179,7 @@
                             <c:forEach var="bag" items="${inTransitBags}">
                                 <tr>
                                     <td>${bag.bagId}</td><td>${bag.bloodGroup}</td>
-                                    <td class="actions"><a href="${pageContext.request.contextPath}/receive-transfer?bagId=${bag.bagId}" class="btn btn-approve" onclick="return confirm('Mark bag as received?');">Receive</a></td>
+                                    <td class="actions"><a href="${pageContext.request.contextPath}/receive-transfer?bagId=${bag.bagId}" class="btn btn-approve">Receive</a></td>
                                 </tr>
                             </c:forEach>
                         </tbody>
@@ -215,8 +255,11 @@
                                            </form>
                                        </c:if>
                                        <c:if test="${appt.status == 'PRE-SCREEN_PASSED'}">
-                                            <form action="approve-donation" method="POST">
+                                            <%-- ✅ FINAL FIX: The date input is now included as requested --%>
+                                            <form action="approve-donation" method="POST" style="display: inline-block;">
                                                 <input type="hidden" name="donationId" value="${appt.donationId}">
+                                                <label for="donationDate-${appt.donationId}" style="font-weight: normal; font-size: 0.8em;">Date:</label>
+                                                <input type="date" id="donationDate-${appt.donationId}" name="donationDate" value="<%= java.time.LocalDate.now() %>" required style="padding: 5px; width: auto; border-radius: 5px;">
                                                 <button type="submit" class="btn btn-approve">Complete</button>
                                             </form>
                                        </c:if>
@@ -240,8 +283,7 @@
                        <tbody>
                            <c:forEach var="bag" items="${pendingBags}">
                                <tr>
-                                   <td>${bag.bagId}</td><td>${bag.bloodGroup}</td>
-                                   <td><fmt:formatDate value="${bag.dateDonated}" pattern="yyyy-MM-dd" /></td>
+                                   <td>${bag.bagId}</td><td>${bag.bloodGroup}</td><td>${bag.dateDonated}</td>
                                    <td class="actions"><a href="${pageContext.request.contextPath}/update-inventory-status?bagId=${bag.bagId}&status=CLEARED" class="btn btn-approve">Clear</a></td>
                                </tr>
                            </c:forEach>
@@ -255,8 +297,8 @@
     <div id="donorModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h4>Select Emergency Donor(s)</h4>
                 <span class="close-btn" onclick="closeDonorModal()">&times;</span>
+                <h4>Select Emergency Donor(s)</h4>
             </div>
             <form id="donorForm" action="${pageContext.request.contextPath}/fulfill-via-emergency" method="post">
                 <div class="modal-body">

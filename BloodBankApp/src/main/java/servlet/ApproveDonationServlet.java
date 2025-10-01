@@ -8,18 +8,19 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import model.Donation;
 
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.sql.Date;
-import java.sql.SQLException;
 
+/**
+ * ✅ FINAL VERSION: Handles the FINAL approval of a donation via a POST request.
+ * This version is synchronized with the latest DAO methods and includes achievement processing.
+ */
 @WebServlet("/approve-donation")
 public class ApproveDonationServlet extends HttpServlet {
 
-    /**
-     * ✅ FINAL VERSION: Handles the FINAL approval of a donation via a POST request.
-     */
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         
@@ -36,10 +37,17 @@ public class ApproveDonationServlet extends HttpServlet {
             int donationId = Integer.parseInt(req.getParameter("donationId"));
             Date donationDate = Date.valueOf(req.getParameter("donationDate"));
             
-            int userId = DonationDAO.getDonationById(donationId).getUserId();
+            // First, get the user ID for the achievement processing later.
+            Donation donation = DonationDAO.getDonationById(donationId);
+            if (donation == null) {
+                throw new Exception("Donation record not found.");
+            }
+            int userId = donation.getUserId();
 
-            DonationDAO.approveDonationTransaction(donationId, donationDate);
+            // ✅ CRITICAL FIX: Call the correct, final DAO method name.
+            DonationDAO.approveAndProcessDonation(donationId, donationDate);
             
+            // Process achievements for the donor
             processAchievements(userId);
             
             successMessage = "Donation #" + donationId + " has been successfully approved and completed.";
@@ -75,14 +83,15 @@ public class ApproveDonationServlet extends HttpServlet {
             if (totalDonations >= 10 && !AchievementDAO.hasAchievement(userId, "10-Time Donor")) {
                 AchievementDAO.addAchievement(userId, "10-Time Donor", "images/badges/10-time.png");
             }
-            // ✅ FIXED: This method call now correctly matches the method in the updated DonationDAO.
             if (!AchievementDAO.hasAchievement(userId, "Annual Donor")) {
                 if (DonationDAO.getDonationCountInPastYear(userId) >= 2) {
                     AchievementDAO.addAchievement(userId, "Annual Donor", "images/badges/annual.png");
                 }
             }
         } catch (Exception e) {
+            // Log this error to the server console for debugging
             System.err.println("An error occurred during the achievement process: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

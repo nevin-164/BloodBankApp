@@ -1,6 +1,7 @@
 package servlet;
 
 import dao.EmergencyDonorDAO;
+import dao.UserDAO;
 import model.User;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -11,42 +12,52 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.net.URLEncoder;
 
+/**
+ * ✅ FINAL FIX: Handles emergency donor sign-ups.
+ * This servlet now performs a critical eligibility check to prevent donors
+ * on a cooldown period from signing up as an emergency donor.
+ */
 @WebServlet("/emergency-signup")
 public class EmergencySignupServlet extends HttpServlet {
 
-    /**
-     * ✅ FINAL VERSION: Handles the emergency donor sign-up process.
-     * This has been updated to pass the donor's blood group to the DAO, which
-     * is a critical fix for the hospital's emergency contact feature.
-     */
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
-        HttpSession session = req.getSession(false);
-
-        // Security check
-        if (session == null || session.getAttribute("user") == null) {
-            res.sendRedirect(req.getContextPath() + "/login.jsp");
-            return;
-        }
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
         
-        User donor = (User) session.getAttribute("user");
+        HttpSession session = request.getSession(false);
+        User user = (session != null) ? (User) session.getAttribute("user") : null;
 
-        // A donor must have a blood group to sign up for emergency donations.
-        if (donor.getBloodGroup() == null || donor.getBloodGroup().isEmpty()) {
-            String errorMessage = "You must have a blood group set in your profile to become an emergency donor.";
-            res.sendRedirect(req.getContextPath() + "/donor.jsp?error=" + URLEncoder.encode(errorMessage, "UTF-8"));
+        if (user == null) {
+            response.sendRedirect("login.jsp");
             return;
         }
+
+        String successMessage = "";
+        String errorMessage = "";
 
         try {
-            // ✅ FINAL FIX: Pass both the user ID and their blood group to the DAO.
-            EmergencyDonorDAO.signUp(donor.getId(), donor.getBloodGroup());
-            
-            String successMessage = "Thank you! You are now registered as an emergency donor for one week.";
-            res.sendRedirect(req.getContextPath() + "/donor.jsp?success=" + URLEncoder.encode(successMessage, "UTF-8"));
+            int userId = user.getId();
+
+            // ✅ CRITICAL FIX: Check donor's eligibility before allowing emergency sign-up.
+            if (!UserDAO.isDonorEligible(userId)) {
+                errorMessage = "You are currently on a donation cooldown period and cannot sign up as an emergency donor.";
+            } else {
+                String bloodGroup = user.getBloodGroup();
+                EmergencyDonorDAO.signUp(userId, bloodGroup);
+                successMessage = "Thank you! You are now registered as an Emergency Donor for the next 7 days.";
+            }
 
         } catch (Exception e) {
-            throw new ServletException("Error signing up for emergency donation", e);
+            errorMessage = "An error occurred while signing up: " + e.getMessage();
+            e.printStackTrace();
         }
+
+        String redirectURL = request.getContextPath() + "/patient.jsp"; // Or wherever you want to redirect
+        if (!successMessage.isEmpty()) {
+            redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
+        } else if (!errorMessage.isEmpty()) {
+            redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
+        }
+        response.sendRedirect(redirectURL);
     }
 }
