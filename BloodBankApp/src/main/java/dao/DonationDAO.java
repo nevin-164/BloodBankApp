@@ -320,7 +320,7 @@ public class DonationDAO {
         String findDonationSql = "SELECT d.*, u.blood_group FROM donations d JOIN users u ON d.user_id = u.user_id WHERE d.donation_id = ?";
         String updateDonationSql = "UPDATE donations SET status = 'COMPLETED', donation_date = ? WHERE donation_id = ?";
         String createBagSql = "INSERT INTO blood_inventory (donation_id, hospital_id, blood_group, date_donated, expiry_date, inventory_status) VALUES (?, ?, ?, ?, DATE_ADD(?, INTERVAL 42 DAY), 'PENDING_TESTS')";
-        
+
         Connection con = null;
         try {
             con = DBUtil.getConnection();
@@ -329,6 +329,7 @@ public class DonationDAO {
             // Step 1: Get donation details
             String bloodGroup = null;
             int hospitalId = 0;
+            int userId = 0; // <-- ADD THIS LINE to store the donor's ID
 
             try (PreparedStatement ps = con.prepareStatement(findDonationSql)) {
                 ps.setInt(1, donationId);
@@ -336,12 +337,18 @@ public class DonationDAO {
                     if (rs.next()) {
                         bloodGroup = rs.getString("blood_group");
                         hospitalId = rs.getInt("hospital_id");
+                        userId = rs.getInt("user_id"); // <-- FETCH the user_id from the result
                     }
                 }
             }
-            
+
             if (bloodGroup == null) {
                 throw new SQLException("Donation or associated donor's blood group not found.");
+            }
+
+            // ✅ NEW: Add a check to ensure the user ID was found
+            if (userId == 0) {
+                throw new SQLException("Could not find the user associated with this donation.");
             }
 
             // Step 2: Update the donation status with the manual date
@@ -360,6 +367,11 @@ public class DonationDAO {
                 ps.setDate(5, donationDate); // For the expiry date calculation
                 ps.executeUpdate();
             }
+
+            // Step 4: ✅ CRITICAL FIX: Update the donor's eligibility dates
+            Date nextEligibleDate = Date.valueOf(donationDate.toLocalDate().plusDays(90));
+            UserDAO.updateDonationDates(userId, donationDate, nextEligibleDate, con);
+
 
             con.commit(); // Commit transaction
 
