@@ -17,15 +17,24 @@ public class StockDAO {
 
     /**
      * ✅ FIXED: Calculates the total usable stock by combining data from both inventory systems.
-     * This is the definitive method to get a hospital's complete stock count.
+     * This method now initializes a complete map of all blood types to 0, ensuring that the
+     * dashboard display is always consistent and reflects the true total sum from both the
+     * physical inventory and the manual stock ledger. This resolves the issue where the
+     * dashboard would not update after a manual stock change.
      */
     public static Map<String, Integer> getStockByHospital(int hospitalId) throws Exception {
         Map<String, Integer> stockLevels = new HashMap<>();
+        String[] allBloodGroups = {"A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"};
         
+        // Step 1: Initialize the map with all blood groups to guarantee a complete view.
+        for (String bg : allBloodGroups) {
+            stockLevels.put(bg, 0);
+        }
+
         // Use a single database connection for both queries for efficiency.
         try (Connection con = DBUtil.getConnection()) {
             
-            // Step 1: Get the count of real, traceable bags from the primary inventory system.
+            // Step 2: Get the count of real, traceable bags from the primary inventory system.
             String sqlInventory = "SELECT blood_group, COUNT(*) as units FROM blood_inventory " +
                                   "WHERE hospital_id = ? AND inventory_status = 'CLEARED' " +
                                   "GROUP BY blood_group";
@@ -34,12 +43,13 @@ public class StockDAO {
                 ps.setInt(1, hospitalId);
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
+                        // Update the map with the count of physical bags.
                         stockLevels.put(rs.getString("blood_group"), rs.getInt("units"));
                     }
                 }
             }
             
-            // Step 2: Get the manually adjusted numbers from the ledger and add them to the total.
+            // Step 3: Get the manually adjusted numbers from the ledger and add them to the total.
             String sqlStock = "SELECT blood_group, units FROM blood_stock WHERE hospital_id = ?";
             try (PreparedStatement ps = con.prepareStatement(sqlStock)) {
                 ps.setInt(1, hospitalId);
@@ -47,8 +57,8 @@ public class StockDAO {
                     while (rs.next()) {
                         String bloodGroup = rs.getString("blood_group");
                         int manualUnits = rs.getInt("units");
-                        // Add the manual units to any existing tracked units for the same blood group.
-                        stockLevels.put(bloodGroup, stockLevels.getOrDefault(bloodGroup, 0) + manualUnits);
+                        // Add the manual units to the existing count for that blood group.
+                        stockLevels.put(bloodGroup, stockLevels.get(bloodGroup) + manualUnits);
                     }
                 }
             }

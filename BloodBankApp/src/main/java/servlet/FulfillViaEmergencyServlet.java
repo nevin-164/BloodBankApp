@@ -1,9 +1,8 @@
 package servlet;
 
+import dao.EmergencyDonorDAO;
 import dao.RequestDAO;
-import dao.UserDAO; 
-import dao.AchievementDAO; // ✅ ADDED: Import our new DAO
-import model.Hospital; 
+import model.Hospital;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -11,22 +10,25 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
-import java.net.URLEncoder; 
-import java.sql.Date; 
-import java.time.LocalDate; 
+import java.net.URLEncoder;
 
+/**
+ * ✅ FINAL VERSION: Handles fulfilling a patient request via emergency donors.
+ * This version now processes selected donor IDs from the dashboard, updates
+ * the request status, and puts the selected donors on a cooldown period.
+ */
 @WebServlet("/fulfill-via-emergency")
 public class FulfillViaEmergencyServlet extends HttpServlet {
-    private static final int COOLING_DAYS = 90; // Standard 90-day waiting period
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
-        HttpSession session = req.getSession(false);
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
         
+        HttpSession session = request.getSession(false);
         Hospital hospital = (session != null) ? (Hospital) session.getAttribute("hospital") : null;
-        
+
         if (hospital == null) {
-            res.sendRedirect(req.getContextPath() + "/hospital-login.jsp");
+            response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
             return;
         }
 
@@ -34,52 +36,40 @@ public class FulfillViaEmergencyServlet extends HttpServlet {
         String errorMessage = "";
 
         try {
-            int requestId = Integer.parseInt(req.getParameter("requestId"));
-            int donorId = Integer.parseInt(req.getParameter("donorId"));
+            int requestId = Integer.parseInt(request.getParameter("requestId"));
+            String[] selectedDonors = request.getParameterValues("donorId");
 
-            // 1. Mark the patient's request as FULFILLED
-            RequestDAO.updateRequestStatus(requestId, "FULFILLED");
+            if (selectedDonors == null || selectedDonors.length == 0) {
+                errorMessage = "No emergency donor was selected. Please select at least one donor.";
+            } else {
+                // 1. Update the patient's request status
+                RequestDAO.updateRequestStatus(requestId, "FULFILLED");
+                RequestDAO.logRequestAction(requestId, hospital.getId(), "APPROVED");
+                RequestDAO.updateTrackingStatus(requestId, "Your request has been fulfilled with the help of an emergency donor.");
 
-            // 2. Update the emergency donor's eligibility dates
-            LocalDate today = LocalDate.now();
-            Date lastDonationDate = Date.valueOf(today);
-            Date nextEligibleDate = Date.valueOf(today.plusDays(COOLING_DAYS));
-            UserDAO.updateDonationDates(donorId, lastDonationDate, nextEligibleDate);
-            
-            // 3. Log this action for analytics
-            RequestDAO.logRequestAction(requestId, hospital.getId(), "FULFILLED");
-            
-            // --- ✅ NEW: Gamification Logic ---
-            try {
-                // Award the "Emergency Hero" badge
-                boolean hasBadge = AchievementDAO.hasAchievement(donorId, "Emergency Hero");
-                if (!hasBadge) {
-                    AchievementDAO.addAchievement(donorId, 
-                                                  "Emergency Hero", 
-                                                  "images/badges/emergency-hero.png");
+                // 2. Put each selected donor on cooldown
+                for (String donorIdStr : selectedDonors) {
+                    int donorId = Integer.parseInt(donorIdStr);
+                    EmergencyDonorDAO.setDonorOnCooldown(donorId);
                 }
-            } catch (Exception e_ach) {
-                // If gamification fails, don't stop the whole process.
-                System.err.println("Gamification (Emergency Hero) Error: " + e_ach.getMessage());
+                
+                successMessage = "Patient request fulfilled. The selected donor(s) have been updated.";
             }
-            // --- End Gamification Logic ---
-            
-            successMessage = "Request " + requestId + " fulfilled via emergency donor!";
-            
+
+        } catch (NumberFormatException e) {
+            errorMessage = "Invalid data provided.";
+            e.printStackTrace();
         } catch (Exception e) {
-            errorMessage = "Error fulfilling request via emergency donor";
+            errorMessage = "A critical error occurred while fulfilling the request.";
             e.printStackTrace();
         }
         
-        // Redirect to the SERVLET, not the JSP.
-        String redirectURL = req.getContextPath() + "/hospital-dashboard";
-        
-        if (successMessage != null && !successMessage.isEmpty()) {
+        String redirectURL = request.getContextPath() + "/hospital-dashboard";
+        if (!successMessage.isEmpty()) {
             redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
-        } else if (errorMessage != null && !errorMessage.isEmpty()) {
+        } else if (!errorMessage.isEmpty()) {
             redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
         }
-        
-        res.sendRedirect(redirectURL);
+        response.sendRedirect(redirectURL);
     }
 }

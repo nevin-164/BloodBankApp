@@ -9,46 +9,57 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder;
 
 /**
- * This is the final, definitive version of the DeclineRequestServlet.
- * It is now fully synchronized with the final RequestDAO and uses the modern
- * session-based "flash message" system for user notifications.
+ * ✅ FINAL FIX: Restores the original "soft decline" functionality.
+ * This servlet now only logs that the current hospital has declined the request.
+ * It then triggers a check to see if ALL hospitals have declined it before updating
+ * the final status for the patient.
  */
 @WebServlet("/decline-request")
 public class DeclineRequestServlet extends HttpServlet {
-    private static final long serialVersionUID = 1L;
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        
+        HttpSession session = request.getSession(false);
+        Hospital hospital = (session != null) ? (Hospital) session.getAttribute("hospital") : null;
 
-        HttpSession session = req.getSession(false);
-        if (session == null || session.getAttribute("hospital") == null) {
-            res.sendRedirect(req.getContextPath() + "/hospital-login.jsp");
+        if (hospital == null) {
+            response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
             return;
         }
-        Hospital hospital = (Hospital) session.getAttribute("hospital");
+
+        String successMessage = "";
+        String errorMessage = "";
 
         try {
-            int requestId = Integer.parseInt(req.getParameter("requestId"));
-
-            // ✅ FIXED: Using the single, correct method from the final DAO.
-            // This logs that this specific hospital has declined the request.
+            int requestId = Integer.parseInt(request.getParameter("requestId"));
+            
+            // Step 1: Log that THIS hospital has declined the request.
             RequestDAO.logRequestAction(requestId, hospital.getId(), "DECLINED");
 
-            String successMessage = "Request " + requestId + " has been hidden from your view.";
-
-            // ✅ FIXED: Using the modern "flash message" system for toast notifications.
-            session.setAttribute("successMessage", successMessage);
-            res.sendRedirect(req.getContextPath() + "/hospital-dashboard");
-
-        } catch (Exception e) {
-            e.printStackTrace(); // Log the full error to the console for debugging.
+            // Step 2: Check if this was the last hospital. If so, update the global status.
+            RequestDAO.checkAndFinalizeRequestStatus(requestId);
             
-            // Also use the session for error messages.
-            session.setAttribute("errorMessage", "An error occurred while declining the request.");
-            res.sendRedirect(req.getContextPath() + "/hospital-dashboard");
+            successMessage = "The request has been removed from your dashboard.";
+            
+        } catch (NumberFormatException e) {
+            errorMessage = "Invalid request ID provided.";
+            e.printStackTrace();
+        } catch (Exception e) {
+            errorMessage = "An error occurred while processing the decline request.";
+            e.printStackTrace();
         }
+
+        String redirectURL = request.getContextPath() + "/hospital-dashboard";
+        if (!errorMessage.isEmpty()) {
+            redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
+        } else {
+            redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
+        }
+        response.sendRedirect(redirectURL);
     }
 }
-

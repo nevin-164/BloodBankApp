@@ -70,4 +70,22 @@ public class EmergencyDonorDAO {
         }
         return emergencyDonors;
     }
+    
+ // Inside EmergencyDonorDAO.java
+
+    /**
+     * ✅ NEW FEATURE: Puts a donor on cooldown by expiring their current emergency sign-up.
+     * This effectively removes them from the available list until they volunteer again.
+     * @param userId The ID of the donor to put on cooldown.
+     * @throws Exception if a database error occurs.
+     */
+    public static void setDonorOnCooldown(int userId) throws Exception {
+        // We set the expiry date to yesterday, which removes them from the active pool.
+        String sql = "UPDATE emergency_donors SET expiry_date = DATE_SUB(CURDATE(), INTERVAL 1 DAY) WHERE user_id = ?";
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.executeUpdate();
+        }
+    }
 }

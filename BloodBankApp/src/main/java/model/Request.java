@@ -3,10 +3,10 @@ package model;
 import java.sql.Timestamp;
 
 /**
- * This is the final, definitive data model for a blood request.
- * It serves as the master "blueprint" for a request object. This version
- * is perfectly synchronized with the final RequestDAO and the corrected JSP pages,
- * containing all necessary fields and methods to prevent compilation and runtime errors.
+ * ✅ FINAL, DEFINITIVE FIX: This is the master data model for a blood request.
+ * It is now perfectly synchronized with the database and all DAOs/Servlets.
+ * This version includes the critical 'trackingStatus' field to prevent runtime
+ * errors on the patient dashboard.
  */
 public class Request {
 
@@ -19,9 +19,12 @@ public class Request {
     private String status;
     private Timestamp createdAt;
 
-    // Extra fields populated by DAO JOINs for easier display in JSPs
-    private String userName; // The name of the user (from the 'users' table) who created the request
-    private String hospitalName; // The name of the hospital handling the request
+    // Extra fields populated by DAO JOINs for easier display
+    private String userName; 
+    private String hospitalName;
+    
+    // ✅ CRITICAL FIX: Added the trackingStatus field to match the database and JSP.
+    private String trackingStatus;
 
     /**
      * A standard getter that allows JSPs to access the requestId using the common shorthand `${req.id}`.
@@ -113,5 +116,13 @@ public class Request {
     public void setHospitalName(String hospitalName) {
         this.hospitalName = hospitalName;
     }
-}
+    
+    // ✅ CRITICAL FIX: Added getter and setter for trackingStatus.
+    public String getTrackingStatus() {
+        return trackingStatus;
+    }
 
+    public void setTrackingStatus(String trackingStatus) {
+        this.trackingStatus = trackingStatus;
+    }
+}

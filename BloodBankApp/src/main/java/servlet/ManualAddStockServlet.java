@@ -1,6 +1,6 @@
 package servlet;
 
-import dao.BloodInventoryDAO;
+import dao.StockDAO;
 import model.Hospital;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -13,9 +13,8 @@ import java.net.URLEncoder;
 
 /**
  * ✅ FINAL VERSION: Handles the manual addition of cleared blood stock by a hospital user.
- * This servlet has been updated to call the correct, more efficient DAO method that
- * accepts the number of units and uses a batch update, resolving the previous compile error
- * and improving performance.
+ * This servlet has been updated to call the correct DAO method for adding stock
+ * to the manual ledger.
  */
 @WebServlet("/manual-add-stock")
 public class ManualAddStockServlet extends HttpServlet {
@@ -41,9 +40,8 @@ public class ManualAddStockServlet extends HttpServlet {
             if (units <= 0) {
                 errorMessage = "Number of units must be a positive number.";
             } else {
-                // ✅ FIXED: Make a single, efficient call to the corrected DAO method.
-                // The DAO now handles the loop and batch update internally.
-                BloodInventoryDAO.manuallyAddClearedBag(hospital.getId(), bloodGroup, units);
+                // ✅ FIXED: Call the correct DAO method to add to the manual stock ledger.
+                StockDAO.addUnits(hospital.getId(), bloodGroup, units);
                 successMessage = units + " units of " + bloodGroup + " blood have been successfully added to your cleared stock.";
             }
 

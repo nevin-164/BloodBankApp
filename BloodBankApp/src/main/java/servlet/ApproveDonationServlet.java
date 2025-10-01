@@ -12,14 +12,10 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.sql.Date;
-import java.sql.SQLException;
 
 @WebServlet("/approve-donation")
 public class ApproveDonationServlet extends HttpServlet {
 
-    /**
-     * ✅ FINAL VERSION: Handles the FINAL approval of a donation via a POST request.
-     */
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         
@@ -33,15 +29,33 @@ public class ApproveDonationServlet extends HttpServlet {
         String errorMessage = "";
 
         try {
-            int donationId = Integer.parseInt(req.getParameter("donationId"));
-            Date donationDate = Date.valueOf(req.getParameter("donationDate"));
-            
-            int userId = DonationDAO.getDonationById(donationId).getUserId();
+            // ✅ Donation ID
+            String donationIdStr = req.getParameter("donationId");
+            if (donationIdStr == null || donationIdStr.isEmpty()) {
+                throw new IllegalArgumentException("Donation ID is missing.");
+            }
+            int donationId = Integer.parseInt(donationIdStr);
 
+            // ✅ Donation Date (safe parsing)
+            String dateStr = req.getParameter("donationDate");
+            if (dateStr == null || dateStr.isEmpty()) {
+                throw new IllegalArgumentException("Donation date is missing.");
+            }
+
+            Date donationDate;
+            try {
+                donationDate = Date.valueOf(dateStr); // expects yyyy-MM-dd
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid date format. Use yyyy-MM-dd.");
+            }
+
+            // ✅ Approve donation transaction
+            int userId = DonationDAO.getDonationById(donationId).getUserId();
             DonationDAO.approveDonationTransaction(donationId, donationDate);
-            
+
+            // ✅ Award achievements
             processAchievements(userId);
-            
+
             successMessage = "Donation #" + donationId + " has been successfully approved and completed.";
 
         } catch (Exception e) {
@@ -49,6 +63,7 @@ public class ApproveDonationServlet extends HttpServlet {
             e.printStackTrace();
         }
 
+        // ✅ Redirect with proper message
         String redirectURL = req.getContextPath() + "/hospital-dashboard";
         if (!successMessage.isEmpty()) {
             redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
@@ -75,7 +90,6 @@ public class ApproveDonationServlet extends HttpServlet {
             if (totalDonations >= 10 && !AchievementDAO.hasAchievement(userId, "10-Time Donor")) {
                 AchievementDAO.addAchievement(userId, "10-Time Donor", "images/badges/10-time.png");
             }
-            // ✅ FIXED: This method call now correctly matches the method in the updated DonationDAO.
             if (!AchievementDAO.hasAchievement(userId, "Annual Donor")) {
                 if (DonationDAO.getDonationCountInPastYear(userId) >= 2) {
                     AchievementDAO.addAchievement(userId, "Annual Donor", "images/badges/annual.png");
