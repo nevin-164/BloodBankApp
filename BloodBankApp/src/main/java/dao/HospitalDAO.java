@@ -173,6 +173,32 @@ public class HospitalDAO {
         }
         return null;
     }
+    
+ // In file: src/main/java/dao/HospitalDAO.java
+ // ... inside the HospitalDAO class ...
+
+     /**
+      * ✅ NEW METHOD: Retrieves a list of all hospitals except the one specified by the ID.
+      * This is used in the dashboard to populate the stock transfer request form.
+      */
+     public static List<Hospital> getAllHospitalsExcept(int hospitalId) throws Exception {
+         List<Hospital> list = new ArrayList<>();
+         // The <> operator means "not equal to" in SQL
+         String sql = "SELECT * FROM hospitals WHERE hospital_id <> ?";
+         try (Connection con = DBUtil.getConnection();
+              PreparedStatement ps = con.prepareStatement(sql)) {
+             ps.setInt(1, hospitalId);
+             try (ResultSet rs = ps.executeQuery()) {
+                 while (rs.next()) {
+                     Hospital h = new Hospital();
+                     h.setId(rs.getInt("hospital_id"));
+                     h.setName(rs.getString("name"));
+                     list.add(h);
+                 }
+             }
+         }
+         return list;
+     }
 
     public static void updateHospital(Hospital hospital) throws Exception {
         String sql = "UPDATE hospitals SET name=?, email=?, contact_number=?, address=? WHERE hospital_id=?";

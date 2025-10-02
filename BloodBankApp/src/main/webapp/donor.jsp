@@ -10,16 +10,13 @@
         return;
     }
 
-    // ✅ CRITICAL FIX: Always get the latest user data directly from the database.
-    // This solves the stale session issue after a donation and guarantees the page
-    // always displays the correct eligibility status without needing a manual refresh.
+    // Always get the latest user data directly from the database to ensure accuracy.
     User u = UserDAO.getUserById(sessionUser.getId());
     
-    // Also, update the session itself with this fresh data for consistency.
+    // Update the session with this fresh data for consistency.
     session.setAttribute("user", u); 
 
     // --- Data Loading ---
-    // The 'isEligible' check now uses the fresh user data from the database.
     boolean isEligible = UserDAO.isDonorEligible(u.getId());
     Donation appointment = DonationDAO.getPendingAppointmentForDonor(u.getId());
     Date emergencyExpiry = EmergencyDonorDAO.getEmergencyStatusExpiry(u.getId());
@@ -43,7 +40,6 @@
 <html lang="en">
 <head>
     <title>PLASMIC - Donor Dashboard</title>
-    <%-- (The rest of the <head> section and <style> block remains exactly the same) --%>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -129,7 +125,6 @@
         </header>
 
         <main>
-            <%-- The entire body of the page, including the corrected Emergency Donor section, remains the same --%>
             <section class="panel">
                 <div class="panel-header">
                     <i class="fas fa-heartbeat"></i>
@@ -313,7 +308,19 @@
                                     <tr>
                                         <td><fmt:formatDate value="${don.appointmentDate}" pattern="MMM dd, yyyy"/></td>
                                         <td><c:out value="${don.hospitalName != null ? don.hospitalName : 'N/A'}"/></td>
-                                        <td><c:out value="${don.units}"/></td>
+                                        
+                                        <%-- ✅ DEFINITIVE FIX: Conditionally display units for the donor's history --%>
+                                        <td>
+                                            <c:choose>
+                                                <c:when test="${don.units == 0}">
+                                                    <span style="font-style: italic;">Emergency</span>
+                                                </c:when>
+                                                <c:otherwise>
+                                                    <c:out value="${don.units}"/>
+                                                </c:otherwise>
+                                            </c:choose>
+                                        </td>
+
                                         <td><span class="status-badge status-${don.status}">${don.status.replace("_", " ")}</span></td>
                                     </tr>
                                 </c:forEach>

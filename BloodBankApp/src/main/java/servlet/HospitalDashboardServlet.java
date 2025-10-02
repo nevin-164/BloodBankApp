@@ -15,9 +15,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * ✅ FINAL VERSION: This servlet acts as the central controller for the hospital dashboard.
- * It now correctly and safely formats the emergency contacts list as a JSON string
- * to prevent any special characters from breaking the web page's JavaScript.
+ * ✅ DEFINITIVE FINAL VERSION: This servlet correctly provides data for the entire dashboard.
+ * It now sends the emergency contacts list in TWO formats:
+ * 1. A JSON String for the JavaScript-powered main contact list.
+ * 2. A Java Map for the JSTL-powered expandable rows in the patient requests table.
  */
 @WebServlet("/hospital-dashboard")
 public class HospitalDashboardServlet extends HttpServlet {
@@ -31,8 +32,8 @@ public class HospitalDashboardServlet extends HttpServlet {
         response.setDateHeader("Expires", 0);
 
         HttpSession session = request.getSession(false);
-
         Hospital hospital = (session != null) ? (Hospital) session.getAttribute("hospital") : null;
+        
         if (hospital == null) {
             response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
             return;
@@ -41,19 +42,16 @@ public class HospitalDashboardServlet extends HttpServlet {
         try {
             int hospitalId = hospital.getId();
 
-            // --- 1. Fetch Core Dashboard Data (Unchanged) ---
-            List<Request> pendingRequests = RequestDAO.getAllPendingRequests(hospitalId);
-            List<Donation> pendingDonations = DonationDAO.getActionableDonationsForHospital(hospitalId);
+            // 1. Fetch all data required for the dashboard
             Map<String, Integer> currentStock = StockDAO.getStockByHospital(hospitalId);
-            List<BloodInventory> pendingBags = BloodInventoryDAO.getPendingBagsByHospital(hospitalId);
+            List<Hospital> otherHospitals = HospitalDAO.getAllHospitalsExcept(hospitalId);
             List<StockTransfer> pendingTransfers = StockTransferDAO.getPendingTransfersForHospital(hospitalId);
             List<BloodInventory> inTransitBags = BloodInventoryDAO.getInTransitBagsByHospital(hospitalId);
-            List<Hospital> allHospitals = HospitalDAO.getAllHospitals();
-            List<Hospital> otherHospitals = allHospitals.stream()
-                    .filter(h -> h.getId() != hospitalId)
-                    .collect(Collectors.toList());
-
-            // --- 2. Emergency Contact Logic (Unchanged) ---
+            List<Request> pendingRequests = RequestDAO.getAllPendingRequests(hospitalId);
+            List<Donation> pendingDonations = DonationDAO.getActionableDonationsForHospital(hospitalId);
+            List<BloodInventory> pendingBags = BloodInventoryDAO.getPendingBagsByHospital(hospitalId);
+            
+            // 2. Prepare the list of emergency contacts for out-of-stock blood types
             List<User> allActiveEmergencyDonors = EmergencyDonorDAO.getActiveEmergencyDonors();
             Map<String, List<User>> emergencyDonorsByGroup = allActiveEmergencyDonors.stream()
                 .collect(Collectors.groupingBy(User::getBloodGroup));
@@ -70,32 +68,32 @@ public class HospitalDashboardServlet extends HttpServlet {
                 }
             }
 
-            // --- 3. ✅ CRITICAL FIX: Convert emergency contacts to a safe JSON string ---
-            String emergencyContactsJson = convertMapToJson(emergencyContacts);
-            request.setAttribute("emergencyContactsJson", emergencyContactsJson);
-
-            // --- 4. Set Attributes for JSP ---
+            // 3. Set all attributes for the JSP
             request.setAttribute("hospital", hospital);
             request.setAttribute("currentStock", currentStock);
-            request.setAttribute("pendingDonations", pendingDonations);
             request.setAttribute("pendingRequests", pendingRequests);
+            request.setAttribute("pendingDonations", pendingDonations);
             request.setAttribute("pendingBags", pendingBags);
             request.setAttribute("otherHospitals", otherHospitals);
             request.setAttribute("pendingTransfers", pendingTransfers);
             request.setAttribute("inTransitBags", inTransitBags);
+            
+            // ✅ THE FIX: Set BOTH the JSON string AND the Java Map as attributes
+            request.setAttribute("emergencyContactsJson", convertMapToJson(emergencyContacts)); // For JavaScript
+            request.setAttribute("emergencyContacts", emergencyContacts); // For JSTL
 
             request.getRequestDispatcher("/hospital-dashboard.jsp").forward(request, response);
 
         } catch (Exception e) {
             e.printStackTrace();
-            request.setAttribute("errorMessage", "A critical error occurred while loading dashboard data: " + e.getMessage());
+            request.setAttribute("error", "A critical error occurred while loading dashboard data: " + e.getMessage());
             request.getRequestDispatcher("/hospital-dashboard.jsp").forward(request, response);
         }
     }
 
     /**
-     * ✅ NEW & CRITICAL HELPER: Manually builds a JSON object from the map.
-     * This safely handles special characters in names, which was the root cause of the problem.
+     * Manually builds a JSON object from the map of emergency contacts.
+     * This safely handles special characters in names without needing an external library.
      */
     private String convertMapToJson(Map<String, List<User>> map) {
         StringBuilder json = new StringBuilder("{");
@@ -110,7 +108,10 @@ public class HospitalDashboardServlet extends HttpServlet {
                 if (!firstDonor) {
                     json.append(",");
                 }
-                json.append("{\"id\":").append(donor.getId()).append(",\"name\":\"").append(escapeJson(donor.getName())).append("\"}");
+                json.append("{\"id\":").append(donor.getId())
+                    .append(",\"name\":\"").append(escapeJson(donor.getName()))
+                    .append("\",\"contactNumber\":\"").append(escapeJson(donor.getContactNumber()))
+                    .append("\"}");
                 firstDonor = false;
             }
             json.append("]");
@@ -121,7 +122,7 @@ public class HospitalDashboardServlet extends HttpServlet {
     }
 
     /**
-     * ✅ NEW & CRITICAL HELPER: Escapes characters for safe inclusion in a JSON string.
+     * Escapes characters for safe inclusion in a JSON string.
      */
     private String escapeJson(String value) {
         if (value == null) {

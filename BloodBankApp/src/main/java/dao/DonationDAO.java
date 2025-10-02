@@ -409,7 +409,8 @@ public class DonationDAO {
             java.sql.Date donationDate = new java.sql.Date(System.currentTimeMillis()); // Today's date
 
             // 1. Create a new record in the donations table
-            String insertSql = "INSERT INTO donations (user_id, hospital_id, units, blood_group, status, appointment_date, donation_date) VALUES (?, ?, 1, ?, 'COMPLETED', ?, ?)";
+         // ✅ FIX: Record 0 units to flag this as a special (emergency) donation
+            String insertSql = "INSERT INTO donations (user_id, hospital_id, units, blood_group, status, appointment_date, donation_date) VALUES (?, ?, 0, ?, 'COMPLETED', ?, ?)";
             try (PreparedStatement ps = con.prepareStatement(insertSql)) {
                 ps.setInt(1, userId);
                 ps.setInt(2, hospitalId);
