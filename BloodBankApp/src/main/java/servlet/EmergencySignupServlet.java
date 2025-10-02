@@ -14,8 +14,8 @@ import java.net.URLEncoder;
 
 /**
  * ✅ FINAL FIX: Handles emergency donor sign-ups.
- * This servlet now performs a critical eligibility check to prevent donors
- * on a cooldown period from signing up as an emergency donor.
+ * This servlet now performs a critical eligibility check and correctly
+ * redirects the user back to the donor dashboard, preventing page breaks.
  */
 @WebServlet("/emergency-signup")
 public class EmergencySignupServlet extends HttpServlet {
@@ -52,7 +52,9 @@ public class EmergencySignupServlet extends HttpServlet {
             e.printStackTrace();
         }
 
-        String redirectURL = request.getContextPath() + "/patient.jsp"; // Or wherever you want to redirect
+        // ✅ FIXED: Always redirect to the donor page using a GET request.
+        // This follows the Post-Redirect-Get pattern and prevents broken pages.
+        String redirectURL = request.getContextPath() + "/donor.jsp"; 
         if (!successMessage.isEmpty()) {
             redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
         } else if (!errorMessage.isEmpty()) {

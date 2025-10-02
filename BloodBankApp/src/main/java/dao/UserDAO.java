@@ -131,33 +131,80 @@ public class UserDAO {
         }
     }
 
-    public static void deleteUser(int userId) throws Exception {
-        String deleteInventorySQL = "DELETE FROM blood_inventory WHERE donation_id IN (SELECT donation_id FROM donations WHERE user_id = ?)";
-        String deleteCommentsSQL = "DELETE FROM community_comments WHERE post_id IN (SELECT post_id FROM community_posts WHERE user_id = ?)";
-        String deleteAchievementsSQL = "DELETE FROM achievements WHERE user_id = ?";
-        String deleteRequestsSQL = "DELETE FROM requests WHERE patient_id = ?";
-        String deletePostsSQL = "DELETE FROM community_posts WHERE user_id = ?";
-        String deleteDonationsSQL = "DELETE FROM donations WHERE user_id = ?";
-        String deleteUserSQL = "DELETE FROM users WHERE user_id = ?";
-        
+ // Inside UserDAO.java
+
+    /**
+     * ✅ FINAL & CRITICAL FIX: Deletes a user and anonymizes their historical data.
+     * This method uses a transaction to ensure that when a user is deleted, their
+     * past donations, requests, and community posts are preserved but disconnected
+     * from their personal identity. This prevents historical records and blood stock
+     * from being improperly deleted.
+     *
+     * @param userId The ID of the user to delete.
+     * @throws SQLException if the transaction fails.
+     */
+    public static void deleteUserAndAnonymizeData(int userId) throws SQLException {
         Connection con = null;
         try {
             con = DBUtil.getConnection();
             con.setAutoCommit(false); // Start transaction
+
+            // Step 1: Anonymize Donations (set user_id to NULL)
+            // This is the most critical step to preserve blood inventory records.
+            String anonymizeDonations = "UPDATE donations SET user_id = NULL WHERE user_id = ?";
+            try (PreparedStatement ps = con.prepareStatement(anonymizeDonations)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+
+            // Step 2: Anonymize Patient Requests
+            String anonymizeRequests = "UPDATE requests SET user_id = NULL WHERE user_id = ?";
+            try (PreparedStatement ps = con.prepareStatement(anonymizeRequests)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+
+            // Step 3: Anonymize Community Posts
+            String anonymizePosts = "UPDATE posts SET user_id = NULL WHERE user_id = ?";
+            try (PreparedStatement ps = con.prepareStatement(anonymizePosts)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
             
-            try (PreparedStatement ps = con.prepareStatement(deleteInventorySQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deleteCommentsSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deleteAchievementsSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deleteRequestsSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deletePostsSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deleteDonationsSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deleteUserSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            
-            con.commit();
-            
-        } catch (Exception e) {
-            if (con != null) con.rollback();
-            throw new ServletException("Error deleting user", e);
+            // Step 4: Delete achievements, emergency status, and comments, as they are not critical historical data.
+            String deleteAchievements = "DELETE FROM achievements WHERE user_id = ?";
+            try (PreparedStatement ps = con.prepareStatement(deleteAchievements)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+
+            String deleteEmergency = "DELETE FROM emergency_donors WHERE user_id = ?";
+            try (PreparedStatement ps = con.prepareStatement(deleteEmergency)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+
+            String deleteComments = "DELETE FROM comments WHERE user_id = ?";
+            try (PreparedStatement ps = con.prepareStatement(deleteComments)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+
+            // Step 5: Finally, delete the user from the users table.
+            String deleteUser = "DELETE FROM users WHERE user_id = ?";
+            try (PreparedStatement ps = con.prepareStatement(deleteUser)) {
+                ps.setInt(1, userId);
+                ps.executeUpdate();
+            }
+
+            con.commit(); // Commit the transaction
+
+        } catch (SQLException e) {
+            if (con != null) {
+                con.rollback(); // Roll back all changes on any error
+            }
+            // Re-throw the exception to notify the servlet that something went wrong.
+            throw new SQLException("Failed to delete user and anonymize data. Transaction was rolled back.", e);
         } finally {
             if (con != null) {
                 con.setAutoCommit(true);

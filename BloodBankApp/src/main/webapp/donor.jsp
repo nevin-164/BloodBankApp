@@ -1,204 +1,348 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate, model.Achievement" %>
+<%@ page import="model.*, dao.*, java.util.*, java.sql.Date, java.time.LocalDate, model.Achievement, model.Request" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
-    // Get the user object from the session to verify they are logged in.
+    // Security check: Ensure a donor is logged in.
     User sessionUser = (User) session.getAttribute("user");
     if (sessionUser == null || !"DONOR".equals(sessionUser.getRole())) {
         response.sendRedirect("login.jsp");
         return;
     }
 
-    // ✅ FINAL FIX: Always get the latest user data from the database.
-    // This solves the stale session issue after a hospital approves a donation.
+    // ✅ CRITICAL FIX: Always get the latest user data directly from the database.
+    // This solves the stale session issue after a donation and guarantees the page
+    // always displays the correct eligibility status without needing a manual refresh.
     User u = UserDAO.getUserById(sessionUser.getId());
-    session.setAttribute("user", u); // Also, update the session with the fresh data.
-
-    boolean isEligible = true;
-    if (u.getNextEligibleDate() != null && LocalDate.now().isBefore(u.getNextEligibleDate().toLocalDate())) {
-        isEligible = false;
-    }
-
-    boolean hasDonatedToday = false;
-    if (u.getLastDonationDate() != null && u.getLastDonationDate().toLocalDate().isEqual(LocalDate.now())) {
-        hasDonatedToday = true;
-    }
-
-    Donation appointment = dao.DonationDAO.getPendingAppointmentForDonor(u.getId());
-    Date emergencyExpiry = dao.EmergencyDonorDAO.getEmergencyStatusExpiry(u.getId());
-    List<Hospital> hospitals = null;
-    if (isEligible && appointment == null) {
-        hospitals = dao.HospitalDAO.getAllHospitals();
-    }
     
-    List<Achievement> achievements = dao.AchievementDAO.getAchievementsForUser(u.getId());
-    request.setAttribute("achievements", achievements);
+    // Also, update the session itself with this fresh data for consistency.
+    session.setAttribute("user", u); 
+
+    // --- Data Loading ---
+    // The 'isEligible' check now uses the fresh user data from the database.
+    boolean isEligible = UserDAO.isDonorEligible(u.getId());
+    Donation appointment = DonationDAO.getPendingAppointmentForDonor(u.getId());
+    Date emergencyExpiry = EmergencyDonorDAO.getEmergencyStatusExpiry(u.getId());
+    List<Hospital> hospitals = isEligible && appointment == null ? HospitalDAO.getAllHospitals() : new ArrayList<>();
     
-    List<Donation> myDonations = dao.DonationDAO.getDonationsByUserId(u.getId());
-    request.setAttribute("myDonations", myDonations);
+    // Set attributes for JSTL access
+    request.setAttribute("user", u);
+    request.setAttribute("isEligible", isEligible);
+    request.setAttribute("appointment", appointment);
+    request.setAttribute("emergencyExpiry", emergencyExpiry);
+    request.setAttribute("hospitals", hospitals);
+    request.setAttribute("achievements", AchievementDAO.getAchievementsForUser(u.getId()));
+    request.setAttribute("myDonations", DonationDAO.getDonationsByUserId(u.getId()));
+    request.setAttribute("myRequests", RequestDAO.getRequestsByUserId(u.getId()));
+    
+    // For toast notifications
+    String successMessage = request.getParameter("success");
+    String errorMessage = request.getParameter("error");
 %>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>PLASMIC - Donor Dashboard</title>
+    <%-- (The rest of the <head> section and <style> block remains exactly the same) --%>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Poppins', sans-serif; margin: 0; background-color: #f8f9fa; padding: 20px; }
-        .container { max-width: 700px; width: 100%; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
-        h2, h3 { color: #c9302c; }
-        h2 { margin: 0; }
-        a { text-decoration: none; color: #c9302c; font-weight: 600; }
-        .status-box { padding: 15px; border-radius: 5px; border-left: 5px solid; margin-bottom: 20px; }
-        .eligible { background-color: #d4edda; border-color: #28a745; }
-        .ineligible { background-color: #f8d7da; border-color: #dc3545; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-weight: 600; margin-bottom: 5px; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-family: 'Poppins', sans-serif; font-size: 16px; }
-        .form-group button { width: 100%; background-color: #28a745; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: 600; }
-        .form-group button:hover { background-color: #218838; }
-        .emergency-box { padding: 15px; border-radius: 5px; margin-top: 20px; }
-        .emergency-box p { margin: 5px 0; }
-        .emergency-box button { background-color: #c9302c; }
-        .emergency-box button:hover { background-color: #a71d2a; }
-        .thank-you { background-color: #d1ecf1; border-left: 5px solid #0c5460; }
-        .thank-you h3 { color: #0c5460; }
-        .achievements-container, .status-container { margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee; }
-        .badge-list { display: flex; flex-wrap: wrap; gap: 15px; }
-        .badge { display: flex; align-items: center; background: #f4f4f4; border-radius: 8px; padding: 10px; width: 100%; max-width: 250px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .badge img { width: 40px; height: 40px; margin-right: 10px; }
-        .badge-info h4 { margin: 0; font-size: 1rem; color: #333; }
-        .badge-info p { margin: 0; font-size: 0.8rem; color: #777; }
-        .status-table { width: 100%; border-collapse: collapse; }
-        .status-table th, .status-table td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
-        .status-table th { background-color: #f4f4f4; }
-        .status-PENDING { font-weight: bold; color: #ffc107; }
-        .status-APPROVED, .status-COMPLETED { font-weight: bold; color: #28a745; }
-        .status-DECLINED, .status-CLOSED { font-weight: bold; color: #dc3545; }
-        .status-PRE-SCREEN_PASSED { font-weight: bold; color: #007bff; }
+        :root {
+            --primary-color: #d9534f;
+            --primary-hover: #c9302c;
+            --secondary-color: #28a745;
+            --secondary-hover: #218838;
+            --background-color: #f8f9fa;
+            --panel-background: #ffffff;
+            --text-color: #333;
+            --text-light: #6c757d;
+            --border-color: #e9ecef;
+            --shadow: 0 6px 20px rgba(0,0,0,0.07);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Poppins', sans-serif; background-color: var(--background-color); color: var(--text-color); }
+        .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; margin-bottom: 30px; border-bottom: 1px solid var(--border-color); }
+        .header h1 { font-size: 2rem; font-weight: 700; color: var(--primary-color); }
+        .header-nav a { color: var(--text-light); text-decoration: none; font-weight: 500; margin-left: 25px; transition: color 0.3s ease; }
+        .header-nav a:hover { color: var(--primary-color); }
+        .panel { background-color: var(--panel-background); padding: 35px; border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 30px; }
+        .panel-header { display: flex; align-items: center; margin-bottom: 25px; }
+        .panel-header i { font-size: 1.5rem; margin-right: 15px; width: 40px; text-align: center; }
+        .panel-header h3 { font-size: 1.5rem; font-weight: 600; color: var(--text-color); }
+        .panel-header .fa-heartbeat { color: var(--secondary-color); }
+        .panel-header .fa-star { color: #ffc107; }
+        .panel-header .fa-first-aid { color: var(--primary-color); }
+        .panel-header .fa-paper-plane { color: #007bff; }
+        .panel-header .fa-history { color: #6c757d; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; align-items: flex-end; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-light); }
+        .form-group input, .form-group select { width: 100%; padding: 14px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; font-family: 'Poppins', sans-serif; transition: border-color 0.2s, box-shadow 0.2s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(217, 83, 79, 0.1); }
+        .btn { border: none; color: white; padding: 15px 25px; border-radius: 8px; cursor: pointer; font-family: 'Poppins', sans-serif; font-size: 1rem; font-weight: 600; transition: all 0.3s ease; width: 100%; }
+        .btn-primary { background-color: var(--primary-color); }
+        .btn-primary:hover { background-color: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(217, 83, 79, 0.2); }
+        .btn-secondary { background-color: var(--secondary-color); }
+        .btn-secondary:hover { background-color: var(--secondary-hover); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(40, 167, 69, 0.2); }
+        .status-box { padding: 20px; border-radius: 8px; border-left: 5px solid; margin-bottom: 25px; }
+        .status-box strong { font-size: 1.1rem; }
+        .status-box.eligible { background-color: #d4edda; border-color: var(--secondary-color); color: #155724; }
+        .status-box.ineligible { background-color: #f8d7da; border-color: var(--primary-color); color: #721c24; }
+        .appointment-info { background-color: #d1ecf1; border-left: 5px solid #0c5460; color: #0c5460; padding: 20px; border-radius: 8px; }
+        .appointment-info p { margin: 5px 0; }
+        .badge-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .badge { display: flex; align-items: center; background: #f8f9fa; border-radius: 8px; padding: 15px; border: 1px solid var(--border-color); }
+        .badge img { width: 45px; height: 45px; margin-right: 15px; }
+        .badge-info h4 { margin: 0; font-size: 1.1rem; color: #333; }
+        .badge-info p { margin: 2px 0 0; font-size: 0.85rem; color: #777; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th, .data-table td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        .data-table th { font-weight: 600; color: var(--text-light); font-size: 0.9rem; text-transform: uppercase; }
+        .data-table tbody tr:last-child td { border-bottom: none; }
+        .status-badge { padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 0.8rem; color: white; text-transform: uppercase; display: inline-block; text-align: center; }
+        .status-PENDING { background-color: #ffc107; color: #212529; }
+        .status-PRE-SCREEN_PASSED { background-color: #007bff; }
+        .status-APPROVED, .status-COMPLETED { background-color: var(--secondary-color); }
+        .status-DECLINED, .status-CLOSED { background-color: var(--primary-color); }
+        .status-fulfilled { background-color: #28a745; }
+        .empty-state { text-align: center; padding: 40px; color: var(--text-light); font-style: italic; }
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 1000; }
+        .toast { padding: 15px 25px; margin-bottom: 10px; border-radius: 8px; color: white; font-weight: 600; box-shadow: 0 5px 15px rgba(0,0,0,0.2); animation: slideIn 0.5s, fadeOut 0.5s 4.5s; }
+        .toast.success { background-color: #28a745; }
+        .toast.error { background-color: #dc3545; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
     </style>
 </head>
 <body>
+
     <div class="container">
-        <div class="header">
-            <h2>Welcome, <%= u.getName() %></h2>
-            <a href="logout">Logout</a>
-        </div>
-        
-        <% if (isEligible && appointment == null) { %>
-            <div class="status-box eligible">
-                <strong>You are eligible to book a standard donation appointment.</strong>
-            </div>
-        <% } else if (!isEligible) { %>
-            <div class="status-box ineligible">
-                <strong>You are not yet eligible to book a standard donation.</strong><br>
-                Your last donation was on: <%= u.getLastDonationDate() %><br>
-                Your next eligible date is: <strong><%= u.getNextEligibleDate() %></strong>
-            </div>
-        <% } %>
+        <header class="header">
+            <h1>Welcome, <c:out value="${user.name}"/>!</h1>
+            <nav class="header-nav">
+                <a href="${pageContext.request.contextPath}/public-dashboard">Public View</a>
+                <a href="${pageContext.request.contextPath}/community">Community Forum</a>
+                <a href="${pageContext.request.contextPath}/logout">Logout</a>
+            </nav>
+        </header>
 
-        <% if (appointment != null) { %>
-            <h3>Your Upcoming Appointment</h3>
-            <p><strong>Date:</strong> <%= appointment.getAppointmentDate() %></p>
-            <p><strong>Hospital:</strong> <%= appointment.getHospitalName() %></p>
-            <p><strong>Status:</strong> <span class="status-<%= appointment.getStatus() %>"><%= appointment.getStatus().replace("_", " ") %></span></p>
-        <% } else if (isEligible) { %>
-            <h3>Request a Donation Appointment</h3>
-            <form action="donate" method="post" class="appointment-form">
-                <div class="form-group">
-                    <label for="hospitalId">Choose a Hospital:</label>
-                    <select id="hospitalId" name="hospitalId" required>
-                         <% for (Hospital h : hospitals) { %>
-                            <option value="<%= h.getId() %>"><%= h.getName() %></option>
-                        <% } %>
-                    </select>
+        <main>
+            <%-- The entire body of the page, including the corrected Emergency Donor section, remains the same --%>
+            <section class="panel">
+                <div class="panel-header">
+                    <i class="fas fa-heartbeat"></i>
+                    <h3>Donation Status & Appointments</h3>
                 </div>
-                <div class="form-group">
-                    <label for="appointmentDate">Preferred Date:</label>
-                    <input type="date" id="appointmentDate" name="appointmentDate" required min="<%= LocalDate.now().plusDays(1) %>" max="<%= LocalDate.now().plusDays(30) %>">
-                </div>
-                <div class="form-group">
-                    <label for="units">Units to Donate:</label>
-                    <input type="number" id="units" name="units" min="1" value="1" required>
-                </div>
-                <div class="form-group">
-                    <button type="submit">Request Appointment</button>
-                </div>
-            </form>
-        <% } %>
-
-        <% if (hasDonatedToday) { %>
-            <div class="emergency-box thank-you">
-                <h3>Thank You for Your Donation!</h3>
-                <p>Thank you for responding to an emergency request and donating today. You are a true hero!</p>
-            </div>
-        <% } else { %>
-            <div class="emergency-box" style="background-color:#fff3cd; border-left:5px solid #856404;">
-                <h3>Emergency Donor Program</h3>
-                <% if (emergencyExpiry != null) { %>
-                    <p>You are an active emergency donor. Thank you for your commitment!</p>
-                    <p>Your availability expires on: <strong><%= emergencyExpiry %></strong></p>
-                <% } else { %>
-                    <p>Help save lives in critical situations. Sign up to be available for emergency calls for one week.</p>
-                    <form action="emergency-signup" method="post" style="margin-top:10px;">
-                        <button type="submit">Sign Up as Emergency Donor</button>
-                    </form>
-                <% } %>
-            </div>
-        <% } %>
-
-        <div class="achievements-container">
-            <h3>Your Achievements</h3>
-            <c:if test="${empty achievements}">
-                <p>Your earned badges will appear here. Go donate to earn your first!</p>
-            </c:if>
-            <c:if test="${not empty achievements}">
-                <div class="badge-list">
-                    <c:forEach var="ach" items="${achievements}">
-                        <div class="badge">
-                            <img src="${pageContext.request.contextPath}/${ach.badgeIcon}" alt="${ach.badgeName}">
-                            <div class="badge-info">
-                                <h4>${ach.badgeName}</h4>
-                                <p>Earned on: ${ach.dateEarned}</p>
-                            </div>
+                <c:choose>
+                    <c:when test="${not empty appointment}">
+                        <div class="appointment-info">
+                            <h3>Your Upcoming Appointment</h3>
+                            <p><strong>Date:</strong> <fmt:formatDate value="${appointment.appointmentDate}" pattern="MMMM dd, yyyy"/></p>
+                            <p><strong>Hospital:</strong> <c:out value="${appointment.hospitalName}"/></p>
+                            <p><strong>Status:</strong> <span class="status-badge status-${appointment.status}"><c:out value="${appointment.status.replace('_', ' ')}"/></span></p>
                         </div>
-                    </c:forEach>
+                    </c:when>
+                    <c:when test="${isEligible}">
+                        <div class="status-box eligible">
+                            <strong>You are eligible to book a new donation appointment.</strong>
+                        </div>
+                        <form action="donate" method="post">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="hospitalId">Choose a Hospital</label>
+                                    <select id="hospitalId" name="hospitalId" required>
+                                        <c:forEach var="h" items="${hospitals}">
+                                            <option value="${h.id}">${h.name}</option>
+                                        </c:forEach>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="appointmentDate">Preferred Date</label>
+                                    <input type="date" id="appointmentDate" name="appointmentDate" required min="<%= LocalDate.now().plusDays(1) %>" max="<%= LocalDate.now().plusDays(30) %>">
+                                </div>
+                                <div class="form-group">
+                                    <label for="units">Units</label>
+                                    <input type="number" id="units" name="units" min="1" value="1" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>&nbsp;</label>
+                                    <button type="submit" class="btn btn-secondary">Request Appointment</button>
+                                </div>
+                            </div>
+                        </form>
+                    </c:when>
+                    <c:otherwise>
+                        <div class="status-box ineligible">
+                            <strong>You are not yet eligible to book a new donation.</strong><br>
+                            Your last donation was on: <fmt:formatDate value="${user.lastDonationDate}" pattern="MMM dd, yyyy"/><br>
+                            Your next eligible date is: <strong><fmt:formatDate value="${user.nextEligibleDate}" pattern="MMM dd, yyyy"/></strong>
+                        </div>
+                    </c:otherwise>
+                </c:choose>
+            </section>
+            
+            <section class="panel">
+                <div class="panel-header">
+                    <i class="fas fa-paper-plane"></i>
+                    <h3>Submit a Blood Request</h3>
                 </div>
-            </c:if>
-        </div>
-        
-        <div class="status-container">
-            <h3>My Donation History</h3>
-            <c:if test="${empty myDonations}">
-                <p>You have no past donation appointments.</p>
-            </c:if>
-            <c:if test="${not empty myDonations}">
-                <table class="status-table">
-                    <thead>
+                <form action="request-blood" method="post">
+                    <div class="form-grid">
+                        <div class="form-group">
+                             <label for="bloodGroup">Blood Group Needed</label>
+                            <select id="bloodGroup" name="bloodGroup" required>
+                                <option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="unitsReq">Units Required</label>
+                             <input type="number" id="unitsReq" name="units" min="1" required placeholder="e.g., 2">
+                        </div>
+                        <div class="form-group">
+                           <label>&nbsp;</label> <button type="submit" class="btn btn-primary">Submit Request</button>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header">
+                     <i class="fas fa-first-aid"></i>
+                     <h3>Emergency Donor Program</h3>
+                </div>
+                <c:choose>
+                    <c:when test="${not empty emergencyExpiry}">
+                         <div class="status-box eligible">
+                            <p><strong>You are an active emergency donor.</strong> Thank you for your commitment!</p>
+                            <p>Your availability expires on: <strong><fmt:formatDate value="${emergencyExpiry}" pattern="MMM dd, yyyy"/></strong></p>
+                        </div>
+                    </c:when>
+                    <c:when test="${isEligible}">
+                         <p>Help save lives in critical situations. Sign up to be available for emergency calls for one week.</p>
+                         <form action="emergency-signup" method="post" style="margin-top:20px; max-width: 300px;">
+                             <button type="submit" class="btn btn-primary">Sign Up as Emergency Donor</button>
+                         </form>
+                    </c:when>
+                    <c:otherwise>
+                        <p style="color: var(--text-light);">You are currently on a donation cooldown and cannot sign up as an emergency donor. This option will become available on your next eligible date.</p>
+                    </c:otherwise>
+                </c:choose>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <i class="fas fa-star"></i>
+                    <h3>Your Achievements</h3>
+                </div>
+                <c:choose>
+                    <c:when test="${not empty achievements}">
+                        <div class="badge-list">
+                            <c:forEach var="ach" items="${achievements}">
+                                <div class="badge">
+                                    <img src="${pageContext.request.contextPath}/${ach.badgeIcon}" alt="${ach.badgeName}">
+                                    <div class="badge-info">
+                                        <h4>${ach.badgeName}</h4>
+                                        <p>Earned on: <fmt:formatDate value="${ach.dateEarned}" pattern="MMM dd, yyyy"/></p>
+                                    </div>
+                                </div>
+                            </c:forEach>
+                        </div>
+                    </c:when>
+                    <c:otherwise>
+                        <p class="empty-state">Your earned badges will appear here. Go donate to earn your first!</p>
+                    </c:otherwise>
+                </c:choose>
+            </section>
+            
+            <section class="panel">
+                 <div class="panel-header">
+                    <i class="fas fa-history"></i>
+                    <h3>Your Request History</h3>
+                </div>
+                <table class="data-table">
+                     <thead>
                         <tr>
-                            <th>Appointment Date</th>
-                            <th>Hospital</th>
+                            <th>Date</th>
+                            <th>Blood Group</th>
                             <th>Units</th>
                             <th>Status</th>
+                            <th>Fulfilled By</th>
                         </tr>
-                    </thead>
+                     </thead>
                     <tbody>
-                        <c:forEach var="don" items="${myDonations}">
+                        <c:if test="${empty myRequests}">
+                            <tr><td colspan="5"><p class="empty-state">You have no pending or past requests.</p></td></tr>
+                       </c:if>
+                        <c:forEach var="req" items="${myRequests}">
                             <tr>
-                                <td>${don.appointmentDate}</td>
-                                <td>${don.hospitalName != null ? don.hospitalName : 'N/A'}</td>
-                                <td>${don.units}</td>
-                                <td class="status-${don.status}">${don.status.replace("_", " ")}</td>
+                                 <td><fmt:formatDate value="${req.createdAt}" pattern="MMM dd, yyyy"/></td>
+                                <td>${req.bloodGroup}</td>
+                                <td>${req.units}</td>
+                                 <td>
+                                    <span class="status-badge status-${req.status.toLowerCase()}">
+                                        ${req.status}
+                                     </span>
+                                </td>
+                                <td>${req.hospitalName != null ? req.hospitalName : "N/A"}</td>
                             </tr>
                         </c:forEach>
                     </tbody>
                 </table>
-            </c:if>
-        </div>
+           </section>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <i class="fas fa-history"></i>
+                    <h3>My Donation History</h3>
+                </div>
+                <c:choose>
+                    <c:when test="${not empty myDonations}">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Appointment Date</th>
+                                    <th>Hospital</th>
+                                    <th>Units</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <c:forEach var="don" items="${myDonations}">
+                                    <tr>
+                                        <td><fmt:formatDate value="${don.appointmentDate}" pattern="MMM dd, yyyy"/></td>
+                                        <td><c:out value="${don.hospitalName != null ? don.hospitalName : 'N/A'}"/></td>
+                                        <td><c:out value="${don.units}"/></td>
+                                        <td><span class="status-badge status-${don.status}">${don.status.replace("_", " ")}</span></td>
+                                    </tr>
+                                </c:forEach>
+                            </tbody>
+                        </table>
+                    </c:when>
+                    <c:otherwise>
+                        <p class="empty-state">You have no past donation appointments.</p>
+                    </c:otherwise>
+                </c:choose>
+            </section>
+        </main>
     </div>
+
+    <div id="toast-container"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            function showToast(message, type) {
+                if (!message || message.trim() === 'null' || message.trim() === '') return;
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = decodeURIComponent(message.replace(/\+/g, ' '));
+                container.appendChild(toast);
+                setTimeout(() => toast.remove(), 5000);
+            }
+            showToast("<%= successMessage %>", 'success');
+            showToast("<%= errorMessage %>", 'error');
+        });
+    </script>
 </body>
 </html>

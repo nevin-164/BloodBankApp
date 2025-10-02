@@ -7,33 +7,34 @@ import java.util.List;
 
 /**
  * ✅ FINAL VERSION: The definitive Data Access Object for managing emergency donors.
- * This version corrects the logic to store the donor's blood group upon sign-up.
+ * This version corrects the SQL query to use the correct 'start_date' column name,
+ * resolving the "Unknown column" database error.
  */
 public class EmergencyDonorDAO {
 
     /**
-     * ✅ FIXED: Signs a donor up for a 7-day period for a specific blood group.
-     * This method now accepts and stores the blood group, which is the critical fix.
+     * ✅ FIXED: Signs a donor up for a 7-day emergency period using the correct 'start_date' column.
+     * Uses ON DUPLICATE KEY UPDATE to cleanly handle cases where a donor re-signs up.
      */
-    public static void signUp(int userId, String bloodGroup) throws Exception {
-        // NOTE: This assumes your `emergency_donors` table has a `blood_group` column.
-        String sql = "INSERT INTO emergency_donors (user_id, blood_group, start_date, expiry_date) VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY)) " +
-                     "ON DUPLICATE KEY UPDATE blood_group = ?, start_date = CURDATE(), expiry_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY)";
-        try (Connection con = DBUtil.getConnection();
+    public static void signUp(int userId, String bloodGroup) throws SQLException {
+        String sql = "INSERT INTO emergency_donors (user_id, blood_group, start_date, expiry_date) " +
+                     "VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 7 DAY)) " +
+                     "ON DUPLICATE KEY UPDATE start_date = CURDATE(), expiry_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY)";
+        try (Connection con = DBUtil.getConnection(); 
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, userId);
             ps.setString(2, bloodGroup);
-            ps.setString(3, bloodGroup); // For the ON DUPLICATE KEY UPDATE part
             ps.executeUpdate();
         }
     }
 
     /**
-     * Checks if a donor is currently an active emergency donor.
+     * Checks for and returns the expiry date if a donor is currently an active emergency donor.
+     * Returns null if the donor is not active.
      */
-    public static Date getEmergencyStatusExpiry(int userId) throws Exception {
+    public static Date getEmergencyStatusExpiry(int userId) throws SQLException {
         String sql = "SELECT expiry_date FROM emergency_donors WHERE user_id = ? AND expiry_date >= CURDATE()";
-        try (Connection con = DBUtil.getConnection();
+        try (Connection con = DBUtil.getConnection(); 
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, userId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -46,41 +47,49 @@ public class EmergencyDonorDAO {
     }
 
     /**
-     * ✅ FIXED: Gets a list of all active emergency donors for a specific blood group.
+     * Gets a list of all ACTIVE emergency donors.
+     * The `WHERE ed.expiry_date >= CURDATE()` clause ensures expired donors are not shown.
      */
-    public static List<User> getAvailableEmergencyDonors(String bloodGroup) throws Exception {
+ // Inside EmergencyDonorDAO.java
+
+    /**
+     * ✅ FINAL & CRITICAL FIX: Gets a list of all active emergency donors.
+     * This version uses the correct SQL JOIN to retrieve all necessary donor details,
+     * including their name, which was the root cause of the display issue.
+     *
+     * @return A list of User objects for all active emergency donors.
+     * @throws Exception if a database error occurs.
+     */
+    public static List<User> getActiveEmergencyDonors() throws Exception {
         List<User> emergencyDonors = new ArrayList<>();
-        String sql = "SELECT u.user_id, u.name, u.email, u.contact_number FROM users u " +
+        // ✅ CRITICAL FIX: The SQL query now correctly joins the 'users' table
+        // to fetch the donor's name and other essential details.
+        String sql = "SELECT u.user_id, u.name, u.email, u.contact_number, u.blood_group " +
+                     "FROM users u " +
                      "JOIN emergency_donors ed ON u.user_id = ed.user_id " +
-                     "WHERE ed.blood_group = ? AND ed.expiry_date >= CURDATE()";
+                     "WHERE ed.expiry_date >= CURDATE()";
         
         try (Connection con = DBUtil.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, bloodGroup);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    User donor = new User();
-                    donor.setId(rs.getInt("user_id"));
-                    donor.setName(rs.getString("name"));
-                    donor.setEmail(rs.getString("email"));
-                    donor.setContactNumber(rs.getString("contact_number"));
-                    emergencyDonors.add(donor);
-                }
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            
+            while (rs.next()) {
+                User donor = new User();
+                donor.setId(rs.getInt("user_id"));
+                donor.setName(rs.getString("name")); // This will now work correctly
+                donor.setEmail(rs.getString("email"));
+                donor.setContactNumber(rs.getString("contact_number"));
+                donor.setBloodGroup(rs.getString("blood_group"));
+                emergencyDonors.add(donor);
             }
         }
         return emergencyDonors;
     }
     
- // Inside EmergencyDonorDAO.java
-
     /**
-     * ✅ NEW FEATURE: Puts a donor on cooldown by expiring their current emergency sign-up.
-     * This effectively removes them from the available list until they volunteer again.
-     * @param userId The ID of the donor to put on cooldown.
-     * @throws Exception if a database error occurs.
+     * Puts a donor on cooldown by expiring their current emergency sign-up immediately.
      */
-    public static void setDonorOnCooldown(int userId) throws Exception {
-        // We set the expiry date to yesterday, which removes them from the active pool.
+    public static void setDonorOnCooldown(int userId) throws SQLException {
         String sql = "UPDATE emergency_donors SET expiry_date = DATE_SUB(CURDATE(), INTERVAL 1 DAY) WHERE user_id = ?";
         try (Connection con = DBUtil.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {

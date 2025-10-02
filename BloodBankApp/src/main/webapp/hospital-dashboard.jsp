@@ -1,3 +1,4 @@
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="model.*, dao.*, java.util.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -20,31 +21,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
-        body { 
-            font-family: 'Poppins', sans-serif; 
-            margin: 0; 
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
             background: #f4f7f9;
             padding: 20px;
         }
-        .container { 
-            max-width: 1400px; 
-            margin: 0 auto; 
-            background: #ffffff; 
-            padding: 20px 40px; 
-            border-radius: 15px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 20px 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
         }
-        .header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             background: linear-gradient(90deg, #d9534f 0%, #c9302c 100%);
             color: white;
             padding: 20px 30px;
             margin: -20px -40px 30px -40px;
             border-radius: 15px 15px 0 0;
-            flex-wrap: wrap; 
-            gap: 15px; 
+            flex-wrap: wrap;
+            gap: 15px;
         }
         .header h2 { color: white; margin: 0; font-weight: 700; }
         .header a { color: white; text-decoration: none; font-weight: 600; padding: 8px 15px; border: 1px solid white; border-radius: 20px; transition: all 0.3s ease; }
@@ -81,7 +82,18 @@
         .modal-header { padding: 10px 0; border-bottom: 1px solid #eee; margin-bottom: 20px; }
         .modal-header h4 { margin: 0; color: #d9534f; }
         .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .donor-list label { display: block; padding: 10px; border-radius: 5px; margin-bottom: 5px; cursor: pointer; transition: background-color 0.2s; }
+
+        /* ✅ FINAL CSS FIX: Ensures the donor name text is always visible in the pop-up */
+        .modal-content .donor-list label {
+            display: block;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            color: #333 !important; /* Forces the text to be dark gray */
+        }
+
         .donor-list label:hover { background-color: #f5f5f5; }
         .donor-list input { margin-right: 15px; transform: scale(1.2); }
         .modal-footer { padding-top: 20px; text-align: right; border-top: 1px solid #eee; margin-top: 20px; }
@@ -104,7 +116,7 @@
             <h2>PLASMIC Hospital Portal</h2>
             <a href="${pageContext.request.contextPath}/logout">Logout, <c:out value="${hospital.name}"/></a>
         </div>
-        
+
         <div class="dashboard-layout">
             <div class="panel">
                 <h3 class="stock-header">Stock & Transfers</h3>
@@ -123,34 +135,15 @@
                         </c:if>
                     </tbody>
                 </table>
-                
+
                 <hr>
                 <h4>Emergency Donor Contacts</h4>
-                <p style="font-size: 0.8em; color: #666;">
+                 <p style="font-size: 0.8em; color: #666;">
                     This list shows available emergency donors for blood types currently out of stock.
                 </p>
-                <c:if test="${empty emergencyContacts}">
-                    <p class="empty-state">No emergency contacts needed at this time.</p>
-                </c:if>
-                <c:if test="${not empty emergencyContacts}">
-                    <c:forEach var="entry" items="${emergencyContacts}">
-                        <h5 style="color: #c9302c; margin-top: 20px;">Needed: ${entry.key}</h5>
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>Name</th><th>Contact</th><th>Action</th></tr>
-                            </thead>
-                            <tbody>
-                                <c:forEach var="donor" items="${entry.value}">
-                                    <tr>
-                                        <td><c:out value="${donor.name}"/></td>
-                                        <td><c:out value="${donor.email}"/></td>
-                                        <td><a href="tel:${donor.contactNumber}" class="btn btn-call">Call Now</a></td>
-                                    </tr>
-                                </c:forEach>
-                            </tbody>
-                        </table>
-                    </c:forEach>
-                </c:if>
+                <%-- This section is now built by the robust JavaScript below --%>
+                <div id="emergency-contacts-container"></div>
+
 
                 <hr>
                 <h4>Manual Stock Adjustment</h4>
@@ -255,7 +248,6 @@
                                            </form>
                                        </c:if>
                                        <c:if test="${appt.status == 'PRE-SCREEN_PASSED'}">
-                                            <%-- ✅ FINAL FIX: The date input is now included as requested --%>
                                             <form action="approve-donation" method="POST" style="display: inline-block;">
                                                 <input type="hidden" name="donationId" value="${appt.donationId}">
                                                 <label for="donationDate-${appt.donationId}" style="font-weight: normal; font-size: 0.8em;">Date:</label>
@@ -312,9 +304,9 @@
             </form>
         </div>
     </div>
-    
+
     <div id="toast-container"></div>
-    <script>
+   <script>
         document.addEventListener('DOMContentLoaded', function() {
             function showToast(message, type) {
                 if (!message || message.trim() === 'null') return;
@@ -327,19 +319,59 @@
             }
             showToast("<%= successMessage %>", 'success');
             showToast("<%= errorMessage %>", 'error');
+
+            // ✅ FINAL DATA HANDLING: Safely parse the JSON data from the servlet.
+            const emergencyContactsJson = '${emergencyContactsJson}';
+            let emergencyContacts = {};
+            try {
+                // Only parse if the string is not empty or null
+                if (emergencyContactsJson) {
+                    emergencyContacts = JSON.parse(emergencyContactsJson);
+                }
+            } catch (e) {
+                console.error("Could not parse emergency contacts JSON:", emergencyContactsJson, e);
+            }
+
+            // Dynamically build the emergency contacts list on the main dashboard
+            const container = document.getElementById('emergency-contacts-container');
+            if (Object.keys(emergencyContacts).length === 0) {
+                container.innerHTML = '<p class="empty-state">No emergency contacts needed at this time.</p>';
+            } else {
+                for (const bloodGroup in emergencyContacts) {
+                    const groupContainer = document.createElement('div');
+                    groupContainer.innerHTML = `<h5 style="color: #c9302c; margin-top: 20px;">Needed: ${bloodGroup}</h5>`;
+
+                    const table = document.createElement('table');
+                    table.className = 'data-table';
+                    table.innerHTML = `<thead><tr><th>Name</th><th>Action</th></tr></thead>`;
+                    const tbody = document.createElement('tbody');
+
+                    emergencyContacts[bloodGroup].forEach(donor => {
+                        const row = tbody.insertRow();
+                        // Use textContent for safety to prevent any potential HTML injection issues
+                        const nameCell = row.insertCell();
+                        nameCell.textContent = donor.name;
+                        const actionCell = row.insertCell();
+                        actionCell.innerHTML = `<a href="tel:${donor.contactNumber || ''}" class="btn btn-call">Call Now</a>`;
+                    });
+
+                    table.appendChild(tbody);
+                    groupContainer.appendChild(table);
+                    container.appendChild(groupContainer);
+                }
+            }
         });
 
-        const emergencyContacts = {
-            <c:forEach var="entry" items="${emergencyContacts}" varStatus="status">
-                '${entry.key}': [
-                    <c:forEach var="donor" items="${entry.value}" varStatus="donorStatus">
-                        { id: ${donor.id}, name: '${donor.name}' }
-                        ${!donorStatus.last ? ',' : ''}
-                    </c:forEach>
-                ]
-                ${!status.last ? ',' : ''}
-            </c:forEach>
-        };
+        // This variable needs to be accessible to the openDonorModal function
+        let emergencyContactsForModal = {};
+        try {
+            const jsonString = '${emergencyContactsJson}';
+            if(jsonString) {
+                emergencyContactsForModal = JSON.parse(jsonString);
+            }
+        } catch(e) {
+             console.error("Could not parse emergency contacts JSON for modal:", e);
+        }
 
         const modal = document.getElementById('donorModal');
         const modalRequestIdInput = document.getElementById('modalRequestId');
@@ -348,7 +380,7 @@
         function openDonorModal(requestId, bloodGroup) {
             modalRequestIdInput.value = requestId;
             modalDonorListDiv.innerHTML = '';
-            const donors = emergencyContacts[bloodGroup];
+            const donors = emergencyContactsForModal[bloodGroup];
 
             if (donors && donors.length > 0) {
                 donors.forEach(donor => {
@@ -358,6 +390,7 @@
                     checkbox.name = 'donorId';
                     checkbox.value = donor.id;
                     label.appendChild(checkbox);
+                    // Use createTextNode for safety and reliability
                     label.appendChild(document.createTextNode(` ${donor.name}`));
                     modalDonorListDiv.appendChild(label);
                 });

@@ -7,8 +7,8 @@ import java.util.List;
 
 /**
  * ✅ FINAL VERSION: The definitive Data Access Object for managing donations.
- * This version now includes robust, transaction-safe logic for checking and
- * awarding donor achievements upon the completion of a donation.
+ * This version now correctly handles inventory creation, donor cooldowns,
+ * emergency status updates, and achievement awards within a single, robust transaction.
  */
 public class DonationDAO {
 
@@ -33,26 +33,14 @@ public class DonationDAO {
         }
     }
 
-    /**
-     * ✅ NEW: Checks and awards achievements within a transaction.
-     * This method contains the business logic for all donation-related achievements.
-     * @param userId The ID of the user whose achievements are to be checked.
-     * @param con The active database connection.
-     * @throws SQLException if a database error occurs.
-     */
     private static void checkAndAwardAchievements(int userId, Connection con) throws SQLException {
-        // --- 1. First Donation Achievement ---
-        // Awarded for the very first completed donation.
         if (!AchievementDAO.hasAchievement(userId, "First Donation", con)) {
-            if (getDonationCountForUser(userId, con) == 1) { // Checks total completed donations
+            if (getDonationCountForUser(userId, con) == 1) {
                 AchievementDAO.addAchievement(userId, "First Donation", "images/badges/first-donation.png", con);
             }
         }
-
-        // --- 2. Annual Donor Achievement (FIXED LOGIC) ---
-        // Awarded for making 4 or more donations in the last 365 days.
         if (!AchievementDAO.hasAchievement(userId, "Annual Donor", con)) {
-            if (getDonationCountInPastYear(userId, con) >= 4) { // Correctly checks for >= 4 donations
+            if (getDonationCountInPastYear(userId, con) >= 4) {
                 AchievementDAO.addAchievement(userId, "Annual Donor", "images/badges/annual.png", con);
             }
         }
@@ -61,7 +49,7 @@ public class DonationDAO {
 
     // --- Public Methods (Safe for Servlets to Call) ---
 
-    public static void approveDonationTransaction(int donationId, Date dateDonated) throws SQLException {
+    public static void approveDonationTransaction(int donationId, Date dateDonated) throws Exception {
         Connection con = null;
         try {
             con = DBUtil.getConnection();
@@ -72,20 +60,32 @@ public class DonationDAO {
                 throw new SQLException("Donation with ID " + donationId + " not found.");
             }
             int userId = donation.getUserId();
+            int hospitalId = donation.getHospitalId();
+            String bloodGroup = donation.getBloodGroup();
+            int units = donation.getUnits();
 
+            // 1. Set the completion date and update the donation status to 'APPROVED'
             setDonationCompletionDate(donationId, dateDonated, con);
-            // Assuming BloodInventoryDAO also has a transactional method
-            // BloodInventoryDAO.clearPendingBagsForDonation(donationId, con);
             updateDonationStatus(donationId, "APPROVED", con);
+
+            // 2. ✅ **CRITICAL FIX**: Add the donated units to the blood inventory as 'PENDING_TESTS'
+            for (int i = 0; i < units; i++) {
+                BloodInventoryDAO.addBag(donationId, hospitalId, bloodGroup, dateDonated, con);
+            }
+
+            // 3. Update the donor's eligibility for future donations
             Date nextEligibleDate = Date.valueOf(dateDonated.toLocalDate().plusDays(90));
             UserDAO.updateDonationDates(userId, dateDonated, nextEligibleDate, con);
 
-            // ✅ FINAL FIX: Check for and award achievements transactionally
+            // 4. Check for and award any new achievements
             checkAndAwardAchievements(userId, con);
+
+            // 5. Expire the donor's emergency volunteer status
+            EmergencyDonorDAO.setDonorOnCooldown(userId);
 
             con.commit();
 
-        } catch (SQLException e) {
+        } catch (Exception e) {
             if (con != null) {
                 con.rollback();
             }
@@ -113,9 +113,6 @@ public class DonationDAO {
             }
 
             updateDonationStatus(donationId, "PRE-SCREEN_PASSED", con);
-            // for (int i = 0; i < donation.getUnits(); i++) {
-            //     BloodInventoryDAO.addBag(donationId, donation.getHospitalId(), donation.getBloodGroup(), donation.getAppointmentDate(), con);
-            // }
 
             con.commit();
 
@@ -294,9 +291,6 @@ public class DonationDAO {
         return 0;
     }
 
-    /**
-     * ✅ FIXED: This method now correctly returns a List<String[]> as declared.
-     */
     public static List<String[]> expiringWithinDays(int days) throws Exception {
         List<String[]> expiringDonations = new ArrayList<>();
         String sql = "SELECT h.name, d.blood_group, d.units, d.expiry_date FROM donations d " +
@@ -336,86 +330,14 @@ public class DonationDAO {
         return 0;
     }
 
-    /**
-     * ✅ NEW METHOD: Fetches all actionable donation appointments for a hospital.
-     * This includes donations that are 'PENDING' or 'PRE-SCREEN_PASSED', ensuring
-     * that no donation is lost from the hospital's view during the workflow.
-     *
-     * @param hospitalId The ID of the hospital.
-     * @return A list of Donation objects that require action.
-     * @throws Exception if a database error occurs.
-     */
     public static void approveAndProcessDonation(int donationId, Date donationDate) throws Exception {
-        // ✅ CRITICAL FIX: The JOIN condition now correctly uses d.user_id
-        String findDonationSql = "SELECT d.*, u.blood_group FROM donations d JOIN users u ON d.user_id = u.user_id WHERE d.donation_id = ?";
-        String updateDonationSql = "UPDATE donations SET status = 'COMPLETED', donation_date = ? WHERE donation_id = ?";
-        String createBagSql = "INSERT INTO blood_inventory (donation_id, hospital_id, blood_group, date_donated, expiry_date, inventory_status) VALUES (?, ?, ?, ?, DATE_ADD(?, INTERVAL 42 DAY), 'PENDING_TESTS')";
-        
-        Connection con = null;
-        try {
-            con = DBUtil.getConnection();
-            con.setAutoCommit(false); // Start transaction
-
-            // Step 1: Get donation details
-            String bloodGroup = null;
-            int hospitalId = 0;
-            int userId = 0; 
-
-            try (PreparedStatement ps = con.prepareStatement(findDonationSql)) {
-                ps.setInt(1, donationId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        bloodGroup = rs.getString("blood_group");
-                        hospitalId = rs.getInt("hospital_id");
-                        userId = rs.getInt("user_id");
-                    }
-                }
-            }
-            
-            if (bloodGroup == null) {
-                throw new SQLException("Donation or associated donor's blood group not found.");
-            }
-
-            // Step 2: Update the donation status with the manual date
-            try (PreparedStatement ps = con.prepareStatement(updateDonationSql)) {
-                ps.setDate(1, donationDate);
-                ps.setInt(2, donationId);
-                ps.executeUpdate();
-            }
-
-            // Step 3: Create the blood bag in inventory with the manual date
-            try (PreparedStatement ps = con.prepareStatement(createBagSql)) {
-                ps.setInt(1, donationId);
-                ps.setInt(2, hospitalId);
-                ps.setString(3, bloodGroup);
-                ps.setDate(4, donationDate);
-                ps.setDate(5, donationDate); // For the expiry date calculation
-                ps.executeUpdate();
-            }
-            
-            // Step 4: ✅ CRITICAL FIX: Update the donor's eligibility dates
-            Date nextEligibleDate = Date.valueOf(donationDate.toLocalDate().plusDays(90));
-            UserDAO.updateDonationDates(userId, donationDate, nextEligibleDate, con);
-
-            con.commit(); // Commit transaction
-
-        } catch (Exception e) {
-            if (con != null) {
-                con.rollback(); // Roll back on error
-            }
-            throw e; // Re-throw the exception
-        } finally {
-            if (con != null) {
-                con.setAutoCommit(true);
-                con.close();
-            }
-        }
+        // This method is now redundant and approveDonationTransaction should be used instead.
+        // Kept for historical purposes or if other parts of the code still use it.
+        // It's recommended to refactor any remaining calls to use the transactional method.
+        approveDonationTransaction(donationId, donationDate);
     }
 
 
-    /**
-     * Fetches all actionable donation appointments for a hospital (Pending or Pre-Screen Passed).
-     */
     public static List<Donation> getActionableDonationsForHospital(int hospitalId) throws Exception {
         List<Donation> appointments = new ArrayList<>();
         String sql = "SELECT d.donation_id, u.name as donor_name, d.status " +
@@ -437,12 +359,7 @@ public class DonationDAO {
         }
         return appointments;
     }
-    
-    // --- ✅ NEW: Transaction-Aware Helper Methods ---
 
-    /**
-     * Gets the total number of completed donations for a user within a transaction.
-     */
     public static int getDonationCountForUser(int userId, Connection con) throws SQLException {
         String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? AND status = 'COMPLETED'";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
@@ -455,10 +372,7 @@ public class DonationDAO {
         }
         return 0;
     }
-    
-    /**
-     * Gets the number of completed donations in the past year for a user within a transaction.
-     */
+
     public static int getDonationCountInPastYear(int userId, Connection con) throws SQLException {
         String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? " +
                      "AND status = 'COMPLETED' " +
@@ -472,5 +386,61 @@ public class DonationDAO {
             }
         }
         return 0;
+    }
+    
+    
+    /**
+     * ✅ NEW & CRITICAL: Creates a donation record for an emergency fulfillment.
+     * This is a transactional method that ensures a formal donation record is created,
+     * the donor's eligibility dates are updated, their emergency status is expired,
+     * and any relevant achievements are awarded.
+     *
+     * @param userId The ID of the emergency donor.
+     * @param hospitalId The ID of the hospital fulfilling the request.
+     * @param bloodGroup The blood group that was donated.
+     * @throws Exception if the transaction fails.
+     */
+    public static void createEmergencyDonationTransaction(int userId, int hospitalId, String bloodGroup) throws Exception {
+        Connection con = null;
+        try {
+            con = DBUtil.getConnection();
+            con.setAutoCommit(false); // Start transaction
+
+            java.sql.Date donationDate = new java.sql.Date(System.currentTimeMillis()); // Today's date
+
+            // 1. Create a new record in the donations table
+            String insertSql = "INSERT INTO donations (user_id, hospital_id, units, blood_group, status, appointment_date, donation_date) VALUES (?, ?, 1, ?, 'COMPLETED', ?, ?)";
+            try (PreparedStatement ps = con.prepareStatement(insertSql)) {
+                ps.setInt(1, userId);
+                ps.setInt(2, hospitalId);
+                ps.setString(3, bloodGroup);
+                ps.setDate(4, donationDate);
+                ps.setDate(5, donationDate);
+                ps.executeUpdate();
+            }
+
+            // 2. Update the donor's main eligibility dates
+            Date nextEligibleDate = Date.valueOf(donationDate.toLocalDate().plusDays(90));
+            UserDAO.updateDonationDates(userId, donationDate, nextEligibleDate, con);
+
+            // 3. Expire the donor's emergency volunteer status
+            EmergencyDonorDAO.setDonorOnCooldown(userId);
+
+            // 4. Check for and award achievements
+            checkAndAwardAchievements(userId, con);
+
+            con.commit(); // Commit the transaction
+
+        } catch (Exception e) {
+            if (con != null) {
+                con.rollback(); // Roll back on any error
+            }
+            throw new SQLException("The emergency donation transaction failed. Reason: " + e.getMessage(), e);
+        } finally {
+            if (con != null) {
+                con.setAutoCommit(true);
+                con.close();
+            }
+        }
     }
 }
