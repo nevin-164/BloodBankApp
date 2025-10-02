@@ -16,22 +16,22 @@ import java.net.URLEncoder;
  * donation and request data is preserved anonymously, protecting the integrity
  * of the hospital's stock records.
  */
-@WebServlet("/delete-user")
+@WebServlet("/admin/deleteUser") // ✅ FIX 1: Corrected URL pattern
 public class DeleteUserServlet extends HttpServlet {
 
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) // ✅ FIX 2: Changed to doGet
             throws ServletException, IOException {
-        
+
         String successMessage = "";
         String errorMessage = "";
 
         try {
             int userId = Integer.parseInt(request.getParameter("userId"));
-            
+
             // ✅ CRITICAL FIX: Call the new, safe method that anonymizes data before deleting.
             UserDAO.deleteUserAndAnonymizeData(userId);
-            
+
             successMessage = "User #" + userId + " has been successfully deleted, and their historical donation records have been preserved.";
 
         } catch (NumberFormatException e) {
@@ -49,7 +49,7 @@ public class DeleteUserServlet extends HttpServlet {
         } else if (!errorMessage.isEmpty()) {
             redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
         }
-        
+
         response.sendRedirect(redirectURL);
     }
 }
