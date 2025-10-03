@@ -4,8 +4,8 @@
 <head>
     <title>PLASMIC - Edit Hospital</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
-        /* ✅ NEW: Universal box-sizing and a modern font stack */
         * {
             box-sizing: border-box;
         }
@@ -17,17 +17,16 @@
             min-height: 100vh;
             background-color: #f4f4f4;
             margin: 0;
-            padding: 20px; /* Adds spacing on mobile */
+            padding: 20px;
         }
         
-        /* ✅ UPDATED: Container is now fluid */
         .form-container {
             background: white;
             padding: 2rem;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 450px; /* Set a max-width instead of a fixed width */
+            max-width: 450px;
         }
         
         h2 {
@@ -52,7 +51,7 @@
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            font-size: 16px; /* ✅ UPDATED: Prevents auto-zoom on iOS */
+            font-size: 16px;
         }
         
         button {
@@ -85,14 +84,15 @@
 </head>
 <body>
     <div class="form-container">
-        <h2>Edit Hospital Details</h2>
+        <h2><i class="fas fa-edit"></i> Edit Hospital Details</h2>
         <form action="${pageContext.request.contextPath}/admin/hospitals/edit" method="post">
             
             <input type="hidden" name="hospitalId" value="${hospital.hospitalId}" />
 
             <div class="input-group">
                 <label for="name">Name:</label>
-                <input type="text" id="name" name="name" value="${hospital.name}" required />
+           
+                 <input type="text" id="name" name="name" value="${hospital.name}" required />
             </div>
             <div class="input-group">
                 <label for="email">Email:</label>
@@ -107,11 +107,11 @@
                 <input type="text" id="address" name="address" value="${hospital.address}" required />
             </div>
 
-            <button type="submit">Update Hospital</button>
+            <button type="submit"><i class="fas fa-save"></i> Update Hospital</button>
         </form>
 
         <div class="link-group">
-             <a href="${pageContext.request.contextPath}/admin/hospitals">← Back to Hospital List</a>
+             <a href="${pageContext.request.contextPath}/admin/hospitals"><i class="fas fa-arrow-left"></i> Back to Hospital List</a>
         </div>
     </div>
 </body>

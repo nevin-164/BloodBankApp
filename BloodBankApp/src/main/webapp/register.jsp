@@ -4,13 +4,11 @@
 <head>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>PLASMIC - User Registration</title>
-    <!-- ✅ NEW: Viewport meta tag for responsive design -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        /* ✅ NEW: Universal box-sizing for predictable layouts */
         * {
             box-sizing: border-box;
         }
@@ -18,65 +16,128 @@
         body {
             font-family: 'Poppins', sans-serif;
             margin: 0;
-            background-color: #f4f7f6;
+            background-color: #f4f7fa;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            padding: 20px; /* ✅ UPDATED: Padding on body for mobile spacing */
+            padding: 20px;
         }
         
-        /* ✅ UPDATED: Container is now fluid and responsive */
-        .register-container {
-            background: white;
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        .register-wrapper {
+            display: flex;
             width: 100%;
-            max-width: 450px; /* Constrains the width on larger screens */
+            max-width: 900px;
+            min-height: 600px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border-radius: 20px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .branding-side {
+            width: 45%;
+            background-image: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .branding-side h1 {
+            font-size: 48px;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .branding-side p {
+            font-size: 16px;
+            font-weight: 300;
+            margin-top: 10px;
+        }
+
+        .form-side {
+            width: 55%;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
         
         h2 {
             text-align: center;
             color: #333;
             margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 600;
         }
         
         .input-group {
             margin-bottom: 15px;
+            position: relative;
         }
         
         label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-size: 14px;
             color: #555;
+            font-weight: 600;
         }
         
         input, select {
             width: 100%;
-            padding: 10px;
+            padding: 12px 12px 12px 45px;
             border: 1px solid #ddd;
-            border-radius: 5px;
+            border-radius: 8px;
             font-family: 'Poppins', sans-serif;
-            font-size: 16px; /* Prevents auto-zoom on iOS */
+            font-size: 16px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        select {
+            padding: 12px;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+        }
+
+        .input-group .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(20%);
+            color: #aaa;
+            transition: color 0.3s;
+        }
+
+        .input-group input:focus + .input-icon {
+            color: #007bff;
         }
         
         button {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             border: none;
-            border-radius: 5px;
-            background-color: #28a745;
+            border-radius: 8px;
+            background-color: #007bff;
             color: white;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s, transform 0.2s;
+            margin-top: 10px;
         }
 
         button:hover {
-            background-color: #218838;
+            background-color: #0056b3;
+            transform: translateY(-2px);
         }
         
         .link-group {
@@ -87,50 +148,70 @@
         .link-group a {
             color: #007bff;
             text-decoration: none;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .register-wrapper {
+                flex-direction: column;
+            }
+            .branding-side, .form-side {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
 <jsp:include page="common/notification.jsp" />
-    <div class="register-container">
-        <h2>Create a PLASMIC Account</h2>
-        <form action="${pageContext.request.contextPath}/register" method="post">
-            <div class="input-group">
-                <label for="name">Full Name:</label>
-                <input type="text" id="name" name="name" required>
+    <div class="register-wrapper">
+        <div class="branding-side">
+            <h1>PLASMIC</h1>
+            <p>Create an account to save lives.</p>
+        </div>
+        <div class="form-side">
+            <h2>Create an Account</h2>
+            <form action="${pageContext.request.contextPath}/register" method="post">
+                <div class="input-group">
+                    <label for="name">Full Name:</label>
+                    <input type="text" id="name" name="name" required>
+                    <i class="fas fa-user input-icon"></i>
+                </div>
+                <div class="input-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                    <i class="fas fa-envelope input-icon"></i>
+                </div>
+                <div class="input-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                    <i class="fas fa-lock input-icon"></i>
+                </div>
+                <div class="input-group">
+                    <label for="contact_number">Contact Number:</label>
+                    <input type="text" id="contact_number" name="contact_number" required>
+                    <i class="fas fa-phone input-icon"></i>
+                </div>
+                <div class="input-group">
+                    <label for="role">Register as a:</label>
+                    <select id="role" name="role" onchange="toggleBloodGroupField()" required>
+                        <option value="DONOR">Donor</option>
+                        <option value="PATIENT">Patient</option>
+                    </select>
+                </div>
+                <div class="input-group" id="blood-group-field">
+                    <label for="blood_group">Blood Group:</label>
+                    <select id="blood_group" name="blood_group">
+                        <option value="A+">A+</option><option value="A-">A-</option>
+                        <option value="B+">B+</option><option value="B-">B-</option>
+                        <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                        <option value="O+">O+</option><option value="O-">O-</option>
+                    </select>
+                </div>
+                <button type="submit">Register</button>
+            </form>
+            <div class="link-group">
+                <p>Already have an account? <a href="login.jsp">Login here</a></p>
             </div>
-            <div class="input-group">
-                <label for="email">Email:</label>
-                <input type="email" id="email" name="email" required>
-            </div>
-            <div class="input-group">
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required>
-            </div>
-            <div class="input-group">
-                <label for="contact_number">Contact Number:</label>
-                <input type="text" id="contact_number" name="contact_number" required>
-            </div>
-            <div class="input-group">
-                <label for="role">Register as a:</label>
-                <select id="role" name="role" onchange="toggleBloodGroupField()" required>
-                    <option value="DONOR">Donor</option>
-                    <option value="PATIENT">Patient</option>
-                </select>
-            </div>
-            <div class="input-group" id="blood-group-field">
-                <label for="blood_group">Blood Group:</label>
-                <select id="blood_group" name="blood_group">
-                    <option value="A+">A+</option><option value="A-">A-</option>
-                    <option value="B+">B+</option><option value="B-">B-</option>
-                    <option value="AB+">AB+</option><option value="AB-">AB-</option>
-                    <option value="O+">O+</option><option value="O-">O-</option>
-                </select>
-            </div>
-            <button type="submit">Register</button>
-        </form>
-        <div class="link-group">
-            <p>Already have an account? <a href="login.jsp">Login here</a></p>
         </div>
     </div>
     <script>
@@ -139,7 +220,7 @@
             var roleSelect = document.getElementById('role');
             bloodGroupField.style.display = (roleSelect.value === 'DONOR') ? 'block' : 'none';
         }
-        // Run on page load
+        // Run on page load to set the initial state
         toggleBloodGroupField();
     </script>
 </body>
