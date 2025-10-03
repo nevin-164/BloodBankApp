@@ -52,13 +52,18 @@ public class HospitalDAO {
     }
 
     /**
-     * ✅ MODIFIED: This method now safely deletes a hospital and all its associated data
-     * within a single, secure database transaction.
+     * ✅ DEFINITIVE, FINAL FIX: This method now safely deletes a hospital and ALL of its associated data
+     * in the correct order. It handles all foreign key constraints by using the correct column names
+     * for all tables, including the corrected `supplying_hospital_id` for stock transfers.
      */
     public static void deleteHospital(int hospitalId) throws Exception {
+        // SQL statements for deleting all related records
+        String deleteInventoryViaDonationSQL = "DELETE bi FROM blood_inventory bi JOIN donations d ON bi.donation_id = d.donation_id WHERE d.hospital_id = ?";
+        String deleteInventoryDirectSQL = "DELETE FROM blood_inventory WHERE hospital_id = ?";
         String deleteStockSQL = "DELETE FROM blood_stock WHERE hospital_id = ?";
-        String deleteDonationsSQL = "DELETE FROM donations WHERE hospital_id = ?";
         String deleteRequestActionsSQL = "DELETE FROM request_actions WHERE hospital_id = ?";
+        String deleteStockTransfersSQL = "DELETE FROM stock_transfers WHERE requesting_hospital_id = ? OR supplying_hospital_id = ?";
+        String deleteDonationsSQL = "DELETE FROM donations WHERE hospital_id = ?";
         String deleteHospitalSQL = "DELETE FROM hospitals WHERE hospital_id = ?";
         
         Connection con = null;
@@ -67,22 +72,44 @@ public class HospitalDAO {
             // Start a transaction
             con.setAutoCommit(false);
 
-            // 1. Delete from blood_stock
+            // Step 1: Clear inventory linked via donations
+            try (PreparedStatement ps = con.prepareStatement(deleteInventoryViaDonationSQL)) {
+                ps.setInt(1, hospitalId);
+                ps.executeUpdate();
+            }
+
+            // Step 2: Clear inventory linked directly to the hospital
+            try (PreparedStatement ps = con.prepareStatement(deleteInventoryDirectSQL)) {
+                ps.setInt(1, hospitalId);
+                ps.executeUpdate();
+            }
+            
+            // Step 3: Delete from blood_stock
             try (PreparedStatement ps = con.prepareStatement(deleteStockSQL)) {
                 ps.setInt(1, hospitalId);
                 ps.executeUpdate();
             }
-            // 2. Delete from donations
-            try (PreparedStatement ps = con.prepareStatement(deleteDonationsSQL)) {
-                ps.setInt(1, hospitalId);
-                ps.executeUpdate();
-            }
-            // 3. Delete from request_actions
+            
+            // Step 4: Delete from request_actions
             try (PreparedStatement ps = con.prepareStatement(deleteRequestActionsSQL)) {
                 ps.setInt(1, hospitalId);
                 ps.executeUpdate();
             }
-            // 4. Finally, delete the hospital itself
+            
+            // Step 5: ✅ CRITICAL FIX - Delete from stock_transfers using the correct column name
+            try (PreparedStatement ps = con.prepareStatement(deleteStockTransfersSQL)) {
+                ps.setInt(1, hospitalId);
+                ps.setInt(2, hospitalId);
+                ps.executeUpdate();
+            }
+
+            // Step 6: Delete from donations (now safe to do)
+            try (PreparedStatement ps = con.prepareStatement(deleteDonationsSQL)) {
+                ps.setInt(1, hospitalId);
+                ps.executeUpdate();
+            }
+            
+            // Step 7: Finally, delete the hospital itself
             try (PreparedStatement ps = con.prepareStatement(deleteHospitalSQL)) {
                 ps.setInt(1, hospitalId);
                 ps.executeUpdate();
@@ -146,6 +173,32 @@ public class HospitalDAO {
         }
         return null;
     }
+    
+ // In file: src/main/java/dao/HospitalDAO.java
+ // ... inside the HospitalDAO class ...
+
+     /**
+      * ✅ NEW METHOD: Retrieves a list of all hospitals except the one specified by the ID.
+      * This is used in the dashboard to populate the stock transfer request form.
+      */
+     public static List<Hospital> getAllHospitalsExcept(int hospitalId) throws Exception {
+         List<Hospital> list = new ArrayList<>();
+         // The <> operator means "not equal to" in SQL
+         String sql = "SELECT * FROM hospitals WHERE hospital_id <> ?";
+         try (Connection con = DBUtil.getConnection();
+              PreparedStatement ps = con.prepareStatement(sql)) {
+             ps.setInt(1, hospitalId);
+             try (ResultSet rs = ps.executeQuery()) {
+                 while (rs.next()) {
+                     Hospital h = new Hospital();
+                     h.setId(rs.getInt("hospital_id"));
+                     h.setName(rs.getString("name"));
+                     list.add(h);
+                 }
+             }
+         }
+         return list;
+     }
 
     public static void updateHospital(Hospital hospital) throws Exception {
         String sql = "UPDATE hospitals SET name=?, email=?, contact_number=?, address=? WHERE hospital_id=?";

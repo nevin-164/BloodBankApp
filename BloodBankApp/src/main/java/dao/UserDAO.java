@@ -8,85 +8,95 @@ import jakarta.servlet.ServletException;
 
 /**
  * ✅ FINAL VERSION: The definitive Data Access Object for managing Users.
- * This class handles all database interactions for the 'users' table and
- * includes the critical overloaded method to participate in transactions.
+ * This class includes the critical isDonorEligible() method to enforce cooldown periods.
  */
 public class UserDAO {
 
     /**
-     * Finds a user by their email and password for login authentication.
+     * ✅ FINAL FIX: Checks if a donor is eligible to make a new donation.
+     * A donor is eligible if their `next_eligible_date` is in the past or today.
+     * @param userId The ID of the user to check.
+     * @return true if the donor is eligible, false otherwise.
+     * @throws SQLException if a database error occurs.
      */
-	public static User findByEmailAndPassword(String email, String password) throws Exception {
-	    String sql = "SELECT * FROM users WHERE email=? AND password=?";
-	    try (Connection con = DBUtil.getConnection();
-	         PreparedStatement ps = con.prepareStatement(sql)) {
-	        ps.setString(1, email);
-	        ps.setString(2, password);
-	        try (ResultSet rs = ps.executeQuery()) {
-	            if (rs.next()) {
-	                User user = new User();
-	                user.setId(rs.getInt("user_id"));
-	                user.setName(rs.getString("name"));
-	                user.setEmail(rs.getString("email"));
-	                user.setRole(rs.getString("role"));
-	                user.setBloodGroup(rs.getString("blood_group"));
-	                user.setLastDonationDate(rs.getDate("last_donation_date"));
-	                user.setNextEligibleDate(rs.getDate("next_eligible_date"));
-	                return user;
-	            }
-	        }
-	    }
-	    return null;
-	}
+    public static boolean isDonorEligible(int userId) throws SQLException {
+        // CURDATE() gets the current date from the database server.
+        // A donor is eligible if their next eligible date is null (never donated) or on/before today.
+        String sql = "SELECT COUNT(*) FROM users WHERE user_id = ? AND (next_eligible_date IS NULL OR next_eligible_date <= CURDATE())";
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    // If the count is 1, the user exists and is eligible.
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
+        return false; // Default to not eligible.
+    }
 
-    /**
-     * Retrieves a list of all users with the 'DONOR' role.
-     */
-	public static List<User> getAllDonors() throws Exception {
-	    List<User> donorList = new ArrayList<>();
-	    String sql = "SELECT * FROM users WHERE role = 'DONOR'";
-	    try (Connection con = DBUtil.getConnection();
-	         PreparedStatement ps = con.prepareStatement(sql);
-	         ResultSet rs = ps.executeQuery()) {
-	        while (rs.next()) {
-	            User user = new User();
-	            user.setId(rs.getInt("user_id"));
-	            user.setName(rs.getString("name"));
-	            user.setEmail(rs.getString("email"));
-	            user.setBloodGroup(rs.getString("blood_group"));
-	            user.setRole(rs.getString("role"));
-	            donorList.add(user);
-	        }
-	    }
-	    return donorList;
-	}
+    public static User findByEmailAndPassword(String email, String password) throws Exception {
+        String sql = "SELECT * FROM users WHERE email=? AND password=?";
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, email);
+            ps.setString(2, password);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    User user = new User();
+                    user.setId(rs.getInt("user_id"));
+                    user.setName(rs.getString("name"));
+                    user.setEmail(rs.getString("email"));
+                    user.setRole(rs.getString("role"));
+                    user.setBloodGroup(rs.getString("blood_group"));
+                    user.setLastDonationDate(rs.getDate("last_donation_date"));
+                    user.setNextEligibleDate(rs.getDate("next_eligible_date"));
+                    return user;
+                }
+            }
+        }
+        return null;
+    }
 
-    /**
-     * Retrieves a list of all users with the 'PATIENT' role.
-     */
-	public static List<User> getAllPatients() throws Exception {
-	    List<User> patientList = new ArrayList<>();
-	    String sql = "SELECT * FROM users WHERE role = 'PATIENT'";
-	    try (Connection con = DBUtil.getConnection();
-	         PreparedStatement ps = con.prepareStatement(sql);
-	         ResultSet rs = ps.executeQuery()) {
-	        while (rs.next()) {
-	            User user = new User();
-	            user.setId(rs.getInt("user_id"));
-	            user.setName(rs.getString("name"));
-	            user.setEmail(rs.getString("email"));
-	            user.setBloodGroup(rs.getString("blood_group"));
-	            user.setRole(rs.getString("role"));
-	            patientList.add(user);
-	        }
-	    }
-	    return patientList;
-	}
+    public static List<User> getAllDonors() throws Exception {
+        List<User> donorList = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE role = 'DONOR'";
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                User user = new User();
+                user.setId(rs.getInt("user_id"));
+                user.setName(rs.getString("name"));
+                user.setEmail(rs.getString("email"));
+                user.setBloodGroup(rs.getString("blood_group"));
+                user.setRole(rs.getString("role"));
+                donorList.add(user);
+            }
+        }
+        return donorList;
+    }
 
-    /**
-     * ✅ FIXED: Fetches a single user's details, including their crucial donation dates.
-     * This is essential for the donor dashboard to refresh with the latest eligibility info.
-     */
+    public static List<User> getAllPatients() throws Exception {
+        List<User> patientList = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE role = 'PATIENT'";
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                User user = new User();
+                user.setId(rs.getInt("user_id"));
+                user.setName(rs.getString("name"));
+                user.setEmail(rs.getString("email"));
+                user.setBloodGroup(rs.getString("blood_group"));
+                user.setRole(rs.getString("role"));
+                patientList.add(user);
+            }
+        }
+        return patientList;
+    }
+
     public static User getUserById(int userId) throws Exception {
         String sql = "SELECT * FROM users WHERE user_id = ?";
         try (Connection con = DBUtil.getConnection();
@@ -100,7 +110,6 @@ public class UserDAO {
                     user.setEmail(rs.getString("email"));
                     user.setBloodGroup(rs.getString("blood_group"));
                     user.setRole(rs.getString("role"));
-                    // These two lines are critical for the donor dashboard to refresh correctly.
                     user.setLastDonationDate(rs.getDate("last_donation_date"));
                     user.setNextEligibleDate(rs.getDate("next_eligible_date"));
                     return user;
@@ -110,9 +119,6 @@ public class UserDAO {
         return null;
     }
 
-    /**
-     * Updates a user's profile information.
-     */
     public static void updateUser(int userId, String name, String email, String bloodGroup) throws Exception {
         String sql = "UPDATE users SET name = ?, email = ?, blood_group = ? WHERE user_id = ?";
         try (Connection con = DBUtil.getConnection();
@@ -125,47 +131,110 @@ public class UserDAO {
         }
     }
 
+ // Inside UserDAO.java
+
     /**
-     * Deletes a user and all their associated data within a transaction.
+     * ✅ FINAL & CRITICAL FIX: Deletes a user and anonymizes their historical data.
+     * This method uses a transaction to ensure that when a user is deleted, their
+     * past donations, requests, and community posts are preserved but disconnected
+     * from their personal identity. This prevents historical records and blood stock
+     * from being improperly deleted.
+     *
+     * @param userId The ID of the user to delete.
+     * @throws SQLException if the transaction fails.
      */
-    public static void deleteUser(int userId) throws Exception {
-        String deleteInventorySQL = "DELETE FROM blood_inventory WHERE donation_id IN (SELECT donation_id FROM donations WHERE user_id = ?)";
-        String deleteCommentsSQL = "DELETE FROM community_comments WHERE post_id IN (SELECT post_id FROM community_posts WHERE user_id = ?)";
-        String deleteAchievementsSQL = "DELETE FROM achievements WHERE user_id = ?";
-        String deleteRequestsSQL = "DELETE FROM requests WHERE patient_id = ?";
-        String deletePostsSQL = "DELETE FROM community_posts WHERE user_id = ?";
-        String deleteDonationsSQL = "DELETE FROM donations WHERE user_id = ?";
-        String deleteUserSQL = "DELETE FROM users WHERE user_id = ?";
+    public static void deleteUserAndAnonymizeData(int userId) throws SQLException {
+        Connection conn = null;
+        // A PreparedStatement for every table that references a user
+        PreparedStatement psUpdateDonations = null;
+        PreparedStatement psUpdateRequests = null;
+        PreparedStatement psUpdatePosts = null;
+        PreparedStatement psUpdateComments = null;
+        PreparedStatement psUpdateAchievements = null;
+        PreparedStatement psUpdateEmergencyDonors = null;
+        PreparedStatement psDeleteUser = null;
+
+        // SQL statements to anonymize every user link
+        String updateDonationsSQL = "UPDATE donations SET user_id = NULL WHERE user_id = ?;";
+        String updateRequestsSQL = "UPDATE requests SET patient_id = NULL WHERE patient_id = ?;";
+        String updatePostsSQL = "UPDATE community_posts SET user_id = NULL WHERE user_id = ?;";
+        String updateCommentsSQL = "UPDATE community_comments SET user_id = NULL WHERE user_id = ?;";
+        String updateAchievementsSQL = "UPDATE achievements SET user_id = NULL WHERE user_id = ?;";
+        String updateEmergencyDonorsSQL = "UPDATE emergency_donors SET user_id = NULL WHERE user_id = ?;";
         
-        Connection con = null;
+        // ✅ THE FINAL FIX: Changed 'id' to 'user_id' to match the database schema.
+        String deleteUserSQL = "DELETE FROM users WHERE user_id = ?;";
+
         try {
-            con = DBUtil.getConnection();
-            con.setAutoCommit(false); // Start transaction
-            
-            try (PreparedStatement ps = con.prepareStatement(deleteInventorySQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deleteCommentsSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deleteAchievementsSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deleteRequestsSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deletePostsSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deleteDonationsSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            try (PreparedStatement ps = con.prepareStatement(deleteUserSQL)) { ps.setInt(1, userId); ps.executeUpdate(); }
-            
-            con.commit();
-            
-        } catch (Exception e) {
-            if (con != null) con.rollback();
-            throw new ServletException("Error deleting user", e);
+            conn = DBUtil.getConnection();
+            conn.setAutoCommit(false); // Start transaction
+
+            // Anonymize all related records
+            psUpdateDonations = conn.prepareStatement(updateDonationsSQL);
+            psUpdateDonations.setInt(1, userId);
+            psUpdateDonations.executeUpdate();
+
+            psUpdateRequests = conn.prepareStatement(updateRequestsSQL);
+            psUpdateRequests.setInt(1, userId);
+            psUpdateRequests.executeUpdate();
+
+            psUpdatePosts = conn.prepareStatement(updatePostsSQL);
+            psUpdatePosts.setInt(1, userId);
+            psUpdatePosts.executeUpdate();
+
+            psUpdateComments = conn.prepareStatement(updateCommentsSQL);
+            psUpdateComments.setInt(1, userId);
+            psUpdateComments.executeUpdate();
+
+            psUpdateAchievements = conn.prepareStatement(updateAchievementsSQL);
+            psUpdateAchievements.setInt(1, userId);
+            psUpdateAchievements.executeUpdate();
+
+            psUpdateEmergencyDonors = conn.prepareStatement(updateEmergencyDonorsSQL);
+            psUpdateEmergencyDonors.setInt(1, userId);
+            psUpdateEmergencyDonors.executeUpdate();
+
+            // Finally, delete the user's master record
+            psDeleteUser = conn.prepareStatement(deleteUserSQL);
+            psDeleteUser.setInt(1, userId);
+            int rowsAffected = psDeleteUser.executeUpdate();
+
+            if (rowsAffected == 0) {
+                throw new SQLException("Deletion failed, user with ID " + userId + " not found.");
+            }
+
+            conn.commit(); // Commit the transaction
+
+        } catch (SQLException e) {
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    System.err.println("Critical error during transaction rollback: " + ex.getMessage());
+                }
+            }
+            throw new SQLException("Failed to delete user and anonymize data. Transaction was rolled back.", e);
+
         } finally {
-            if (con != null) {
-                con.setAutoCommit(true);
-                con.close();
+            // Gracefully close all resources
+            if (psUpdateDonations != null) psUpdateDonations.close();
+            if (psUpdateRequests != null) psUpdateRequests.close();
+            if (psUpdatePosts != null) psUpdatePosts.close();
+            if (psUpdateComments != null) psUpdateComments.close();
+            if (psUpdateAchievements != null) psUpdateAchievements.close();
+            if (psUpdateEmergencyDonors != null) psUpdateEmergencyDonors.close();
+            if (psDeleteUser != null) psDeleteUser.close();
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
 
-    /**
-     * Checks if an email address already exists in the database.
-     */
     public static boolean isEmailExists(String email) throws Exception {
         String sql = "SELECT COUNT(*) FROM users WHERE email = ?";
         try (Connection con = DBUtil.getConnection();
@@ -180,9 +249,6 @@ public class UserDAO {
         return false;
     }
 
-    /**
-     * Inserts a new user into the database during registration.
-     */
     public static void insert(String name, String email, String password, String role, String bloodGroup, String contactNumber) throws Exception {
         String sql = "INSERT INTO users (name, email, password, role, blood_group, contact_number) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection con = DBUtil.getConnection();
@@ -201,9 +267,6 @@ public class UserDAO {
         }
     }
 
-    /**
-     * Retrieves the next date a donor is eligible to donate.
-     */
     public static Date getNextEligibleDate(int userId) throws Exception {
         String sql = "SELECT next_eligible_date FROM users WHERE user_id=?";
         try (Connection con = DBUtil.getConnection();
@@ -218,11 +281,6 @@ public class UserDAO {
         return null;
     }
 
-    /**
-     * ✅ OVERLOADED VERSION FOR TRANSACTIONS: This version is transaction-safe.
-     * It accepts an existing database connection, allowing it to safely participate
-     * in the "all-or-nothing" transaction started in DonationDAO.
-     */
     public static void updateDonationDates(int userId, Date lastDonation, Date nextEligible, Connection con) throws SQLException {
         String sql = "UPDATE users SET last_donation_date = ?, next_eligible_date = ? WHERE user_id = ?";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
@@ -233,13 +291,8 @@ public class UserDAO {
         }
     }
     
-    /**
-     * ✅ FIXED: This non-transactional version now correctly calls the transaction-safe
-     * version above, preventing silent errors and code duplication.
-     */
     public static void updateDonationDates(int userId, Date lastDonation, Date nextEligible) throws Exception {
         try (Connection con = DBUtil.getConnection()) {
-            // This now correctly calls the transaction-safe method.
             updateDonationDates(userId, lastDonation, nextEligible, con);
         }
     }

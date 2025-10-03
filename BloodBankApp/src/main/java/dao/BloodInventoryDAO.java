@@ -10,7 +10,7 @@ import java.util.List;
 import model.BloodInventory;
 
 /**
- * ✅ FINAL VERSION: The definitive Data Access Object for managing the detailed Blood Inventory.
+ * ✅ DEFINITIVE FINAL VERSION: The definitive Data Access Object for managing the detailed Blood Inventory.
  * This class contains all methods required for the entire application workflow, including
  * the critical methods to participate in database transactions.
  */
@@ -18,7 +18,7 @@ public class BloodInventoryDAO {
 	
     /**
      * ✅ OVERLOADED VERSION FOR TRANSACTIONS:
-     * Accepts an existing database connection to safely participate in transactions.
+     * Adds a new blood bag to the inventory using an existing database connection.
      */
 	public static void addBag(int donationId, int hospitalId, String bloodGroup, Date dateDonated, Connection con) throws SQLException {
         String sql = "INSERT INTO blood_inventory (donation_id, hospital_id, blood_group, date_donated, expiry_date, inventory_status) VALUES (?, ?, ?, ?, DATE_ADD(?, INTERVAL 42 DAY), 'PENDING_TEST')";
@@ -31,15 +31,31 @@ public class BloodInventoryDAO {
             ps.executeUpdate();
         }
     }
+	// In file: BloodInventoryDAO.java
+	// Add this new method anywhere inside the class
 
+	    /**
+	     * ✅ NEW & CRITICAL TRANSACTIONAL METHOD: Creates new "virtual" bag records for untraceable units.
+	     * When manual stock is transferred, this method creates corresponding records in the main
+	     * blood_inventory, marking them as 'IN_TRANSIT' for the receiving hospital.
+	     * This ensures ALL transferred units appear in the "Incoming Shipments" list.
+	     */
+	    public static void createInTransitBags(int receivingHospitalId, String bloodGroup, int units, Connection con) throws SQLException {
+	        String sql = "INSERT INTO blood_inventory (hospital_id, blood_group, date_donated, expiry_date, inventory_status, donation_id) " +
+	                     "VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 42 DAY), 'IN_TRANSIT', NULL)";
+	        try (PreparedStatement ps = con.prepareStatement(sql)) {
+	            // Loop to create one record for each unit transferred
+	            for (int i = 0; i < units; i++) {
+	                ps.setInt(1, receivingHospitalId);
+	                ps.setString(2, bloodGroup);
+	                ps.addBatch();
+	            }
+	            ps.executeBatch();
+	        }
+	    }
     /**
-     * ✅ NEW TRANSACTIONAL METHOD: Clears all pending bags for a specific donation.
-     * This is designed to be called from within the approveDonationTransaction in DonationDAO.
-     *
-     * @param donationId The ID of the donation whose bags are to be cleared.
-     * @param con The existing database connection for the transaction.
-     * @return The number of bags updated.
-     * @throws SQLException if a database error occurs.
+     * ✅ TRANSACTIONAL METHOD: Clears all pending bags for a specific donation.
+     * Designed to be called from within the approveDonationTransaction in DonationDAO.
      */
     public static int clearPendingBagsForDonation(int donationId, Connection con) throws SQLException {
         String sql = "UPDATE blood_inventory SET inventory_status = 'CLEARED' WHERE donation_id = ? AND inventory_status = 'PENDING_TEST'";
@@ -120,7 +136,7 @@ public class BloodInventoryDAO {
     // --- Methods for Manual Stock Addition & Removal ---
 
     /**
-     * Manually inserts a new, already-cleared blood bag into the inventory.
+     * Manually inserts new, already-cleared blood bags into the inventory.
      */
     public static void manuallyAddClearedBag(int hospitalId, String bloodGroup, int units) throws Exception {
         String sql = "INSERT INTO blood_inventory (hospital_id, blood_group, date_donated, expiry_date, inventory_status, donation_id) " +
@@ -168,6 +184,24 @@ public class BloodInventoryDAO {
     }
 
     /**
+     * ✅ NEW TRANSACTIONAL VERSION: Gets the count of cleared bags using an existing connection.
+     * This is required for the approveTransferTransaction.
+     */
+    public static int getClearedBagCount(int hospitalId, String bloodGroup, Connection con) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM blood_inventory WHERE hospital_id = ? AND blood_group = ? AND inventory_status = 'CLEARED'";
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, hospitalId);
+            ps.setString(2, bloodGroup);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        }
+        return 0;
+    }
+
+    /**
      * Transfers a specified number of blood bags from one hospital to another.
      */
     public static int transferBags(int fromHospitalId, int toHospitalId, String bloodGroup, int units) throws Exception {
@@ -175,6 +209,36 @@ public class BloodInventoryDAO {
         String updateBagSql = "UPDATE blood_inventory SET hospital_id = ?, inventory_status = 'IN_TRANSIT' WHERE bag_id = ?";
         List<Integer> bagIdsToTransfer = new ArrayList<>();
         try (Connection con = DBUtil.getConnection(); PreparedStatement findPs = con.prepareStatement(findBagsSql)) {
+            findPs.setInt(1, fromHospitalId);
+            findPs.setString(2, bloodGroup);
+            findPs.setInt(3, units);
+            try (ResultSet rs = findPs.executeQuery()) {
+                while (rs.next()) {
+                    bagIdsToTransfer.add(rs.getInt("bag_id"));
+                }
+            }
+            if (bagIdsToTransfer.isEmpty()) return 0;
+            try (PreparedStatement updatePs = con.prepareStatement(updateBagSql)) {
+                for (int bagId : bagIdsToTransfer) {
+                    updatePs.setInt(1, toHospitalId);
+                    updatePs.setInt(2, bagId);
+                    updatePs.addBatch();
+                }
+                int[] updateCounts = updatePs.executeBatch();
+                return updateCounts.length;
+            }
+        }
+    }
+    
+    /**
+     * ✅ NEW TRANSACTIONAL VERSION: Transfers bags from one hospital to another using an existing connection.
+     * This is required for the approveTransferTransaction.
+     */
+    public static int transferBags(int fromHospitalId, int toHospitalId, String bloodGroup, int units, Connection con) throws SQLException {
+        String findBagsSql = "SELECT bag_id FROM blood_inventory WHERE hospital_id = ? AND blood_group = ? AND inventory_status = 'CLEARED' ORDER BY date_donated ASC LIMIT ?";
+        String updateBagSql = "UPDATE blood_inventory SET hospital_id = ?, inventory_status = 'IN_TRANSIT' WHERE bag_id = ?";
+        List<Integer> bagIdsToTransfer = new ArrayList<>();
+        try (PreparedStatement findPs = con.prepareStatement(findBagsSql)) {
             findPs.setInt(1, fromHospitalId);
             findPs.setString(2, bloodGroup);
             findPs.setInt(3, units);
