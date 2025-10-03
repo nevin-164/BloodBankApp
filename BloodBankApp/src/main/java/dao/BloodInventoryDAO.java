@@ -154,15 +154,63 @@ public class BloodInventoryDAO {
     /**
      * Manually removes a specified number of the oldest cleared blood bags of a certain type.
      */
-    public static int manuallyRemoveClearedBags(int hospitalId, String bloodGroup, int unitsToRemove) throws Exception {
-        String sql = "DELETE FROM blood_inventory WHERE hospital_id = ? AND blood_group = ? AND inventory_status = 'CLEARED' ORDER BY date_donated ASC LIMIT ?";
-        try (Connection con = DBUtil.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+    /**
+     * Manually removes a specified number of the oldest cleared blood bags of a certain type.
+     * This is for correcting inventory or removing damaged/expired units.
+     */
+ // ... other methods in BloodInventoryDAO.java ...
+
+    /**
+     * ✅ UPDATED & FINAL: Manually removes a specified number of the oldest blood bags
+     * of a certain type, REGARDLESS of their current status. This is the definitive
+     * method for all manual stock removals (e.g., for damaged or expired units).
+     *
+     * @param hospitalId    The ID of the hospital.
+     * @param bloodGroup    The blood group of the bags to remove.
+     * @param unitsToRemove The maximum number of bags to remove.
+     * @return The number of bags that were actually removed.
+     * @throws SQLException if a database error occurs.
+     */
+    public static int manuallyRemoveBags(int hospitalId, String bloodGroup, int unitsToRemove) throws SQLException {
+        // This query is now more powerful. It finds the oldest bags of the specified
+        // blood group at the hospital and deletes them, ignoring their status.
+        String sql = "DELETE FROM blood_inventory WHERE bag_id IN " +
+                     "(SELECT bag_id FROM (SELECT bag_id FROM blood_inventory " +
+                     "WHERE hospital_id = ? AND blood_group = ? " +
+                     "ORDER BY date_donated ASC LIMIT ?) as temp)";
+
+        try (Connection con = DBUtil.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setInt(1, hospitalId);
+            ps.setString(2, bloodGroup);
+            ps.setInt(3, unitsToRemove);
+
+            // The return value is the number of rows (bags) that were actually deleted.
+            return ps.executeUpdate();
+        }
+    }
+ // ... all your existing methods in BloodInventoryDAO.java remain unchanged ...
+
+    /**
+     * ✅ NEW TRANSACTIONAL OVERLOAD: Manually removes bags using an existing connection.
+     * This allows the operation to be part of a larger transaction managed by a servlet.
+     */
+    public static int manuallyRemoveBags(int hospitalId, String bloodGroup, int unitsToRemove, Connection con) throws SQLException {
+        String sql = "DELETE FROM blood_inventory WHERE bag_id IN " +
+                     "(SELECT bag_id FROM (SELECT bag_id FROM blood_inventory " +
+                     "WHERE hospital_id = ? AND blood_group = ? " +
+                     "ORDER BY date_donated ASC LIMIT ?) as temp)";
+
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, hospitalId);
             ps.setString(2, bloodGroup);
             ps.setInt(3, unitsToRemove);
             return ps.executeUpdate();
         }
     }
+
+    // ... rest of the methods in BloodInventoryDAO.java ...
 
     // --- Methods for Inter-Hospital Transfers ---
 
@@ -308,4 +356,8 @@ public class BloodInventoryDAO {
             return ps.executeUpdate(); 
         }
     }
+    
+    
+    
+    
 }

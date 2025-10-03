@@ -1,14 +1,15 @@
-<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>PLASMIC - User Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        /* Universal box-sizing for easier layout management */
         * {
             box-sizing: border-box;
         }
@@ -20,23 +21,23 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh; /* Use min-height to handle content overflow */
-            padding: 20px; /* Add padding for small screens */
+            min-height: 100vh;
+            padding: 20px;
         }
 
-        .login-wrapper {
+        .login-container {
             display: flex;
             width: 100%;
-            max-width: 900px; /* Set a max-width instead of a fixed width */
-            height: 550px;
+            max-width: 900px;
+            min-height: 550px;
             box-shadow: 0 15px 30px rgba(0,0,0,0.1);
             border-radius: 15px;
             overflow: hidden;
             background: white;
         }
 
-        .branding-side {
-            background-color: #c9302c;
+        .login-branding {
+            background-image: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             width: 45%;
             display: flex;
@@ -47,19 +48,19 @@
             text-align: center;
         }
 
-        .branding-side h1 {
+        .login-branding h1 {
             font-size: 48px;
             margin: 0;
             font-weight: 600;
         }
 
-        .branding-side p {
+        .login-branding p {
             font-size: 16px;
             font-weight: 300;
             margin-top: 10px;
         }
 
-        .form-side {
+        .login-form {
             width: 55%;
             padding: 40px;
             display: flex;
@@ -67,7 +68,7 @@
             justify-content: center;
         }
 
-        .form-side h2 {
+        .login-form h2 {
             margin-top: 0;
             margin-bottom: 20px;
             color: #333;
@@ -75,6 +76,7 @@
 
         .input-group {
             margin-bottom: 15px;
+            position: relative;
         }
 
         .input-group label {
@@ -84,12 +86,20 @@
             color: #555;
         }
 
-        .input-group input, .input-group select {
+        .input-group input {
             width: 100%;
-            padding: 10px;
+            padding: 10px 10px 10px 40px;
             border: 1px solid #ddd;
             border-radius: 5px;
             font-family: 'Poppins', sans-serif;
+        }
+
+        .input-group .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
         }
 
         button {
@@ -97,98 +107,84 @@
             padding: 12px;
             border: none;
             border-radius: 5px;
-            background-color: #007bff;
+            background-image: linear-gradient(to right, #6a11cb 0%, #2575fc 100%);
             color: white;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: background-color 0.3s;
         }
-
+        
         button:hover {
-            background-color: #0056b3;
+            background-color: #218838;
         }
 
-        .link-group {
+        .links {
             text-align: center;
             margin-top: 20px;
         }
 
-        .link-group a {
+        .links a {
             color: #007bff;
             text-decoration: none;
             margin: 0 10px;
         }
 
-        /* --- ✅ NEW: Style for the public dashboard link to make it stand out --- */
-        .link-group .public-link {
-            display: block; /* Make it a block to take its own line */
-            margin-top: 15px; /* Add some space above it */
-            color: #28a745; /* Give it a different color */
-            font-weight: bold;
-        }
-
-
-        /* --- Media Query for Mobile Devices --- */
         @media (max-width: 768px) {
             body {
-                align-items: flex-start; /* Align to top on mobile */
+                align-items: flex-start;
             }
 
-            .login-wrapper {
-                flex-direction: column; /* Stack branding and form vertically */
-                height: auto; /* Allow height to adjust to content */
+            .login-container {
+                flex-direction: column;
+                height: auto;
+                min-height: 0;
                 width: 100%;
-                max-width: 450px; /* Constrain width on phones */
+                max-width: 450px;
             }
 
-            .branding-side, .form-side {
-                width: 100%; /* Make both sections full-width */
+            .login-branding, .login-form {
+                width: 100%;
+            }
+            
+            .login-branding {
+                padding: 40px 20px;
+            }
+            
+            .login-branding h1 {
+                font-size: 36px;
             }
 
-            .branding-side {
-                padding: 40px 20px; /* Adjust padding for smaller screens */
-            }
-
-            .branding-side h1 {
-                font-size: 36px; /* Slightly smaller title */
-            }
-
-            .form-side {
+            .login-form {
                 padding: 30px 20px;
             }
         }
-
     </style>
 </head>
 <body>
-    <div class="login-wrapper">
-        <div class="branding-side">
+    <jsp:include page="common/notification.jsp" />
+    <div class="login-container">
+        <div class="login-branding">
             <h1>PLASMIC</h1>
-            <p>Your journey to saving lives starts here.</p>
+            <p>Your connection to saving lives.</p>
         </div>
-        <div class="form-side">
-            <h2>User Portal Login</h2>
-            <form action="${pageContext.request.contextPath}/login" method="post">
+        <div class="login-form">
+            <h2>User Login</h2>
+            <form action="login" method="post">
                 <div class="input-group">
                     <label for="email">Email:</label>
+                    <i class="fas fa-envelope input-icon"></i>
                     <input type="email" id="email" name="email" required>
                 </div>
                 <div class="input-group">
                     <label for="password">Password:</label>
+                    <i class="fas fa-lock input-icon"></i>
                     <input type="password" id="password" name="password" required>
                 </div>
-
-                <%-- ✅ NEW: This hidden field holds the redirect URL from the previous page --%>
-                <input type="hidden" name="redirectURL" value="${param.redirectURL}">
-
                 <button type="submit">Login</button>
             </form>
-            <div class="link-group">
-                <a href="register.jsp">Register</a>
-                <a href="index.jsp">Home</a>
-                
-                <a href="${pageContext.request.contextPath}/public-dashboard" class="public-link">View Public Stock Dashboard</a>
+            <div class="links">
+                <a href="register.jsp">Create an account</a> | <a href="index.jsp">Back to Home</a>
             </div>
         </div>
     </div>

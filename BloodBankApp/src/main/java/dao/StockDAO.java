@@ -184,4 +184,90 @@ public class StockDAO {
              ps.executeUpdate();
          }
      }
+  // ... all your existing methods in StockDAO.java remain unchanged ...
+
+     /**
+      * ✅ NEW TRANSACTIONAL METHOD: Decrements the stock count in the summary table.
+      * This is designed to be called only after bags are successfully removed from
+      * the detailed inventory table to ensure data consistency.
+      *
+      * @param hospitalId The ID of the hospital.
+      * @param bloodGroup The blood group to update.
+      * @param unitsToRemove The number of units to decrement.
+      * @param con The active database connection for the transaction.
+      * @throws SQLException if a database error occurs.
+      */
+     public static boolean removeStockPrioritizingInventory(int hospitalId, String bloodGroup, int unitsToRemove) throws SQLException {
+         Connection con = null;
+         try {
+             con = DBUtil.getConnection();
+             con.setAutoCommit(false); // Start transaction
+
+             // Step 1: Check total available stock first to prevent unnecessary operations
+             Map<String, Integer> currentStock = getStockByHospital(hospitalId);
+             int totalAvailable = currentStock.getOrDefault(bloodGroup, 0);
+
+             if (totalAvailable < unitsToRemove) {
+                 con.rollback(); // Not enough stock, cancel transaction
+                 return false;
+             }
+
+             // Step 2: Find out how many traceable bags are in the inventory
+             int inventoryBagsCount = 0;
+             String countSql = "SELECT COUNT(*) FROM blood_inventory WHERE hospital_id = ? AND blood_group = ? AND inventory_status = 'CLEARED'";
+             try (PreparedStatement ps = con.prepareStatement(countSql)) {
+                 ps.setInt(1, hospitalId);
+                 ps.setString(2, bloodGroup);
+                 try (ResultSet rs = ps.executeQuery()) {
+                     if (rs.next()) {
+                         inventoryBagsCount = rs.getInt(1);
+                     }
+                 }
+             }
+
+             // Step 3: Remove from `blood_inventory` first
+             int unitsTakenFromInventory = 0;
+             if (inventoryBagsCount > 0) {
+                 String updateInventorySql = "UPDATE blood_inventory SET inventory_status = 'USED' " +
+                                             "WHERE hospital_id = ? AND blood_group = ? AND inventory_status = 'CLEARED' " +
+                                             "ORDER BY expiry_date ASC LIMIT ?";
+                 try (PreparedStatement ps = con.prepareStatement(updateInventorySql)) {
+                     ps.setInt(1, hospitalId);
+                     ps.setString(2, bloodGroup);
+                     ps.setInt(3, unitsToRemove); // Try to remove all needed units
+                     unitsTakenFromInventory = ps.executeUpdate();
+                 }
+             }
+
+             // Step 4: If more units need to be removed, take them from the manual `blood_stock` ledger
+             int remainderToRemove = unitsToRemove - unitsTakenFromInventory;
+             if (remainderToRemove > 0) {
+                 String updateStockSql = "UPDATE blood_stock SET units = units - ? WHERE hospital_id = ? AND blood_group = ?";
+                 try (PreparedStatement ps = con.prepareStatement(updateStockSql)) {
+                     ps.setInt(1, remainderToRemove);
+                     ps.setInt(2, hospitalId);
+                     ps.setString(3, bloodGroup);
+                     ps.executeUpdate();
+                 }
+             }
+
+             con.commit(); // Finalize the transaction
+             return true;
+
+         } catch (Exception e) {
+             if (con != null) {
+                 con.rollback(); // Rollback on any error
+             }
+             throw new SQLException("Error during stock removal transaction.", e);
+         } finally {
+             if (con != null) {
+                 try {
+                     con.setAutoCommit(true);
+                     con.close();
+                 } catch (SQLException e) {
+                     e.printStackTrace();
+                 }
+             }
+         }
+     }
 }

@@ -10,6 +10,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>PLASMIC - Admin Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -100,6 +101,7 @@
     </style>
 </head>
 <body>
+<jsp:include page="common/notification.jsp" />
     <div class="header">
         <h2>PLASMIC Admin Dashboard</h2>
         <a href="<%= request.getContextPath() %>/logout">Logout</a>

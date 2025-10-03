@@ -15,10 +15,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * ✅ DEFINITIVE FINAL VERSION: This servlet correctly provides data for the entire dashboard.
- * It now sends the emergency contacts list in TWO formats:
- * 1. A JSON String for the JavaScript-powered main contact list.
- * 2. A Java Map for the JSTL-powered expandable rows in the patient requests table.
+ * ✅ DEFINITIVE FINAL VERSION: This servlet provides data for the dashboard.
+ * It now implements a highly targeted emergency donor list, showing donors
+ * ONLY for the specific blood groups that are either at zero stock OR have
+ * insufficient stock to fulfill a pending patient request.
  */
 @WebServlet("/hospital-dashboard")
 public class HospitalDashboardServlet extends HttpServlet {
@@ -51,19 +51,35 @@ public class HospitalDashboardServlet extends HttpServlet {
             List<Donation> pendingDonations = DonationDAO.getActionableDonationsForHospital(hospitalId);
             List<BloodInventory> pendingBags = BloodInventoryDAO.getPendingBagsByHospital(hospitalId);
             
-            // 2. Prepare the list of emergency contacts for out-of-stock blood types
+            // 2. ✅ NEW LOGIC: Prepare a targeted list of emergency contacts.
+            // First, get all active donors and group them by blood type for easy lookup.
             List<User> allActiveEmergencyDonors = EmergencyDonorDAO.getActiveEmergencyDonors();
             Map<String, List<User>> emergencyDonorsByGroup = allActiveEmergencyDonors.stream()
+                .filter(donor -> donor.getBloodGroup() != null && !donor.getBloodGroup().trim().isEmpty())
                 .collect(Collectors.groupingBy(User::getBloodGroup));
             
+            // Create the final map that will be sent to the page.
             Map<String, List<User>> emergencyContacts = new HashMap<>();
             String[] allBloodGroups = {"A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"};
-            
+
+            // Condition 1: Add donors for any blood group with ZERO stock.
             for (String bloodGroup : allBloodGroups) {
                 if (currentStock.getOrDefault(bloodGroup, 0) == 0) {
-                    List<User> donors = emergencyDonorsByGroup.get(bloodGroup);
-                    if (donors != null && !donors.isEmpty()) {
-                        emergencyContacts.put(bloodGroup, donors);
+                    if (emergencyDonorsByGroup.containsKey(bloodGroup)) {
+                        emergencyContacts.put(bloodGroup, emergencyDonorsByGroup.get(bloodGroup));
+                    }
+                }
+            }
+            
+            // Condition 2: Add donors for any pending request where stock is insufficient.
+            for (Request req : pendingRequests) {
+                String bloodGroup = req.getBloodGroup();
+                int stockForRequest = currentStock.getOrDefault(bloodGroup, 0);
+                
+                // If requested units are more than available stock AND this group isn't already listed
+                if (req.getUnits() > stockForRequest && !emergencyContacts.containsKey(bloodGroup)) {
+                    if (emergencyDonorsByGroup.containsKey(bloodGroup)) {
+                        emergencyContacts.put(bloodGroup, emergencyDonorsByGroup.get(bloodGroup));
                     }
                 }
             }
@@ -78,9 +94,8 @@ public class HospitalDashboardServlet extends HttpServlet {
             request.setAttribute("pendingTransfers", pendingTransfers);
             request.setAttribute("inTransitBags", inTransitBags);
             
-            // ✅ THE FIX: Set BOTH the JSON string AND the Java Map as attributes
-            request.setAttribute("emergencyContactsJson", convertMapToJson(emergencyContacts)); // For JavaScript
-            request.setAttribute("emergencyContacts", emergencyContacts); // For JSTL
+            request.setAttribute("emergencyContactsJson", convertMapToJson(emergencyContacts));
+            request.setAttribute("emergencyContacts", emergencyContacts);
 
             request.getRequestDispatcher("/hospital-dashboard.jsp").forward(request, response);
 
@@ -91,10 +106,6 @@ public class HospitalDashboardServlet extends HttpServlet {
         }
     }
 
-    /**
-     * Manually builds a JSON object from the map of emergency contacts.
-     * This safely handles special characters in names without needing an external library.
-     */
     private String convertMapToJson(Map<String, List<User>> map) {
         StringBuilder json = new StringBuilder("{");
         boolean firstGroup = true;
@@ -121,15 +132,13 @@ public class HospitalDashboardServlet extends HttpServlet {
         return json.toString();
     }
 
-    /**
-     * Escapes characters for safe inclusion in a JSON string.
-     */
     private String escapeJson(String value) {
         if (value == null) {
             return "";
         }
         return value.replace("\\", "\\\\")
                     .replace("\"", "\\\"")
+                    .replace("'", "\\'")
                     .replace("\b", "\\b")
                     .replace("\f", "\\f")
                     .replace("\n", "\\n")

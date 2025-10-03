@@ -2,10 +2,10 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <html>
 <head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>PLASMIC - Manage Hospitals</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* --- Base & Desktop Styles --- */
         * {
             box-sizing: border-box;
         }
@@ -25,7 +25,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
-            flex-wrap: wrap; /* Allow wrapping on medium screens */
+            flex-wrap: wrap;
             gap: 15px;
         }
 
@@ -40,7 +40,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             background: white;
             border-radius: 8px;
-            overflow: hidden; /* Ensures radius is applied to corners */
+            overflow: hidden;
         }
 
         th, td {
@@ -54,7 +54,7 @@
         }
 
         th {
-            background-color: #17a2b8;
+            background-color: #343a40;
             color: white;
         }
 
@@ -94,74 +94,14 @@
             text-decoration: none;
             font-weight: bold;
         }
-        
-        /* --- ✅ NEW: Media Query for Mobile Devices --- */
-        @media (max-width: 768px) {
-            .container {
-                padding: 15px;
-            }
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            /* Responsive Table Styling */
-            table, thead, tbody, th, td, tr {
-                display: block;
-            }
-            
-            table {
-                box-shadow: none;
-                background: none;
-            }
-
-            thead tr {
-                position: absolute;
-                top: -9999px;
-                left: -9999px;
-            }
-            
-            tr {
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                margin-bottom: 15px;
-                background: #fff;
-                padding: 10px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            }
-            
-            td {
-                border: none;
-                border-bottom: 1px solid #eee;
-                position: relative;
-                padding-left: 50%;
-                text-align: right;
-                min-height: 30px; /* For consistent alignment */
-            }
-            
-            td:last-child {
-                border-bottom: 0;
-            }
-            
-            td:before {
-                content: attr(data-label); /* Use the data-label attribute as the label */
-                position: absolute;
-                left: 10px;
-                width: 45%;
-                padding-right: 10px;
-                white-space: nowrap;
-                text-align: left;
-                font-weight: bold;
-                color: #333;
-            }
-        }
     </style>
 </head>
 <body>
+<jsp:include page="common/notification.jsp" />
     <div class="container">
         <div class="header">
-            <h2>Hospital Management</h2>
-            <a href="${pageContext.request.contextPath}/addHospitalForm" class="add-btn">+ Add New Hospital</a>
+            <h2><i class="fas fa-hospital"></i> Hospital Management</h2>
+            <a href="${pageContext.request.contextPath}/addHospitalForm" class="add-btn"><i class="fas fa-plus"></i> Add New Hospital</a>
         </div>
 
         <c:if test="${not empty hospitals}">
@@ -179,16 +119,16 @@
                 <tbody>
                     <c:forEach var="h" items="${hospitals}">
                         <tr>
-                            <td data-label="ID">${h.id}</td>
-                            <td data-label="Name">${h.name}</td>
-                            <td data-label="Email">${h.email}</td>
-                            <td data-label="Contact">${h.contactNumber}</td>
-                            <td data-label="Address">${h.address}</td>
-                            <td data-label="Actions" class="actions-cell">
-                                <a href="${pageContext.request.contextPath}/admin/hospitals/edit?hospitalId=${h.id}" class="edit-link">Edit</a>
+                            <td>${h.id}</td>
+                            <td>${h.name}</td>
+                            <td>${h.email}</td>
+                            <td>${h.contactNumber}</td>
+                            <td>${h.address}</td>
+                            <td class="actions-cell">
+                                <a href="${pageContext.request.contextPath}/admin/hospitals/edit?hospitalId=${h.id}" class="edit-link"><i class="fas fa-edit"></i> Edit</a>
                                 <a href="${pageContext.request.contextPath}/deleteHospital?hospitalId=${h.id}" 
                                    class="delete-link"
-                                   onclick="return confirm('Are you sure you want to delete this hospital?');">Delete</a>
+                                   onclick="return confirm('Are you sure you want to delete this hospital?');"><i class="fas fa-trash"></i> Delete</a>
                             </td>
                         </tr>
                     </c:forEach>
@@ -200,7 +140,7 @@
             <p class="message">No hospitals found.</p>
         </c:if>
 
-        <a href="${pageContext.request.contextPath}/admin.jsp" class="back-link">← Back to Dashboard</a>
+        <a href="${pageContext.request.contextPath}/admin.jsp" class="back-link"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
     </div>
 </body>
 </html>

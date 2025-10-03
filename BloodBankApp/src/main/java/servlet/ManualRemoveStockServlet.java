@@ -1,48 +1,73 @@
 package servlet;
 
-import dao.BloodInventoryDAO;
+import dao.StockDAO;
 import model.Hospital;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.sql.SQLException;
 
 /**
- * Handles the form submission for manually removing cleared stock.
- * This is for correcting inventory, or removing expired or contaminated units.
+ * ✅ DEFINITIVE FINAL VERSION: Handles the manual removal of stock from the hospital dashboard.
+ * This servlet calls the new intelligent transaction method in StockDAO to ensure
+ * stock is removed correctly from both the physical inventory and the manual ledger.
  */
+@WebServlet("/manual-remove-stock")
 public class ManualRemoveStockServlet extends HttpServlet {
 
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+        
         HttpSession session = request.getSession(false);
         Hospital hospital = (session != null) ? (Hospital) session.getAttribute("hospital") : null;
 
         if (hospital == null) {
-            response.sendRedirect("hospital-login.jsp");
+            response.sendRedirect(request.getContextPath() + "/hospital-login.jsp");
             return;
         }
+
+        String successMessage = "";
+        String errorMessage = "";
 
         try {
             String bloodGroup = request.getParameter("bloodGroup");
             int unitsToRemove = Integer.parseInt(request.getParameter("units"));
+            int hospitalId = hospital.getId();
 
-            // Call the DAO method to remove the oldest cleared bags first.
-            int unitsActuallyRemoved = BloodInventoryDAO.manuallyRemoveClearedBags(hospital.getId(), bloodGroup, unitsToRemove);
-
-            if (unitsActuallyRemoved > 0) {
-                 session.setAttribute("successMessage", "Successfully removed " + unitsActuallyRemoved + " unit(s) of " + bloodGroup + " from your inventory.");
+            if (unitsToRemove <= 0) {
+                errorMessage = "Number of units to remove must be positive.";
             } else {
-                 session.setAttribute("errorMessage", "Could not remove stock. No cleared units of " + bloodGroup + " were found.");
+                // Call the new intelligent method to remove stock
+                boolean success = StockDAO.removeStockPrioritizingInventory(hospitalId, bloodGroup, unitsToRemove);
+                
+                if (success) {
+                    successMessage = unitsToRemove + " units of " + bloodGroup + " stock successfully removed.";
+                } else {
+                    errorMessage = "Not enough stock available to remove " + unitsToRemove + " units of " + bloodGroup + ".";
+                }
             }
-           
-            response.sendRedirect("hospital-dashboard");
 
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
+            errorMessage = "Invalid number format for units.";
             e.printStackTrace();
-            session.setAttribute("errorMessage", "Error removing stock: " + e.getMessage());
-            response.sendRedirect("hospital-dashboard");
+        } catch (Exception e) {
+            errorMessage = "A critical database error occurred during stock removal: " + e.getMessage();
+            e.printStackTrace();
         }
+        
+        // Redirect back to the dashboard with a message
+        String redirectURL = request.getContextPath() + "/hospital-dashboard";
+        if (!successMessage.isEmpty()) {
+            redirectURL += "?success=" + URLEncoder.encode(successMessage, "UTF-8");
+        } else if (!errorMessage.isEmpty()) {
+            redirectURL += "?error=" + URLEncoder.encode(errorMessage, "UTF-8");
+        }
+        response.sendRedirect(redirectURL);
     }
 }
