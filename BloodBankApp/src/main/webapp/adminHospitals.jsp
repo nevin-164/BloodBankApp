@@ -2,6 +2,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <html>
 <head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>PLASMIC - Manage Hospitals</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -158,6 +159,7 @@
     </style>
 </head>
 <body>
+<jsp:include page="common/notification.jsp" />
     <div class="container">
         <div class="header">
             <h2>Hospital Management</h2>

@@ -39,6 +39,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>PLASMIC - Donor Dashboard</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -104,16 +105,10 @@
         .status-DECLINED, .status-CLOSED { background-color: var(--primary-color); }
         .status-fulfilled { background-color: #28a745; }
         .empty-state { text-align: center; padding: 40px; color: var(--text-light); font-style: italic; }
-        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 1000; }
-        .toast { padding: 15px 25px; margin-bottom: 10px; border-radius: 8px; color: white; font-weight: 600; box-shadow: 0 5px 15px rgba(0,0,0,0.2); animation: slideIn 0.5s, fadeOut 0.5s 4.5s; }
-        .toast.success { background-color: #28a745; }
-        .toast.error { background-color: #dc3545; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
     </style>
 </head>
 <body>
-
+<jsp:include page="common/notification.jsp" />
     <div class="container">
         <header class="header">
             <h1>Welcome, <c:out value="${user.name}"/>!</h1>
@@ -335,21 +330,7 @@
         </main>
     </div>
 
-    <div id="toast-container"></div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            function showToast(message, type) {
-                if (!message || message.trim() === 'null' || message.trim() === '') return;
-                const container = document.getElementById('toast-container');
-                const toast = document.createElement('div');
-                toast.className = `toast ${type}`;
-                toast.textContent = decodeURIComponent(message.replace(/\+/g, ' '));
-                container.appendChild(toast);
-                setTimeout(() => toast.remove(), 5000);
-            }
-            showToast("<%= successMessage %>", 'success');
-            showToast("<%= errorMessage %>", 'error');
-        });
-    </script>
+    
+    
 </body>
 </html>

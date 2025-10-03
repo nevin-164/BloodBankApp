@@ -2,6 +2,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <html>
 <head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>PLASMIC - User Registration</title>
     <!-- ✅ NEW: Viewport meta tag for responsive design -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -90,6 +91,7 @@
     </style>
 </head>
 <body>
+<jsp:include page="common/notification.jsp" />
     <div class="register-container">
         <h2>Create a PLASMIC Account</h2>
         <form action="${pageContext.request.contextPath}/register" method="post">

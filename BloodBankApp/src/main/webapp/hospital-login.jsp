@@ -2,6 +2,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <html>
 <head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>PLASMIC - Hospital Login</title>
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -154,6 +155,7 @@
     </style>
 </head>
 <body>
+<jsp:include page="common/notification.jsp" />
     <div class="login-wrapper">
         <div class="branding-side">
             <h1>PLASMIC</h1>

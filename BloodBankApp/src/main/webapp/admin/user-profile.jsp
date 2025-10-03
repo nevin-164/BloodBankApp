@@ -229,15 +229,26 @@
                         <tbody>
                             <c:forEach var="r" items="${requestHistory}">
                                 <tr>
-                                    <td>${r.requestDate}</td>
+                                    <td>${r.createdAt}</td>
                                     <td>${r.bloodGroup}</td>
-                                    <td>${r.trackingStatus}</td>
+                                    <%-- ✅ THE FIX: Conditionally display the status message --%>
+                                    <td>
+                                        <c:choose>
+                                            <c:when test="${r.status == 'FULFILLED'}">
+                                                req fullfiled by ${r.hospitalName}
+                                            </c:when>
+                                            <c:otherwise>
+                                                ${r.trackingStatus}
+                                            </c:otherwise>
+                                        </c:choose>
+                                    </td>
                                 </tr>
                             </c:forEach>
                         </tbody>
                     </table>
                 </c:if>
             </div>
-        </div> </div>
+        </div>
+    </div>
 </body>
 </html>

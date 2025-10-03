@@ -361,7 +361,8 @@ public class DonationDAO {
     }
 
     public static int getDonationCountForUser(int userId, Connection con) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? AND status = 'COMPLETED'";
+        // Correctly count both APPROVED and COMPLETED donations
+        String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? AND status IN ('COMPLETED', 'APPROVED')";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, userId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -374,8 +375,9 @@ public class DonationDAO {
     }
 
     public static int getDonationCountInPastYear(int userId, Connection con) throws SQLException {
+        // Correctly count both APPROVED and COMPLETED donations within the past year
         String sql = "SELECT COUNT(*) FROM donations WHERE user_id = ? " +
-                     "AND status = 'COMPLETED' " +
+                     "AND status IN ('COMPLETED', 'APPROVED') " + 
                      "AND donation_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
         try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, userId);
@@ -387,7 +389,6 @@ public class DonationDAO {
         }
         return 0;
     }
-    
     
     /**
      * ✅ NEW & CRITICAL: Creates a donation record for an emergency fulfillment.

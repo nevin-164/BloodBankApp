@@ -16,6 +16,7 @@
 %>
 <html>
 <head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>PLASMIC - Hospital Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
@@ -76,18 +77,13 @@
         .empty-state { color: #6c757d; font-style: italic; margin-top: 15px; text-align: center; padding: 20px; }
         hr { margin:25px 0; border: 0; border-top: 1px solid #eee; }
 
-        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 1000; }
-        .toast { padding: 15px 25px; margin-bottom: 10px; border-radius: 8px; color: white; font-weight: 600; box-shadow: 0 5px 15px rgba(0,0,0,0.2); animation: slideIn 0.5s, fadeOut 0.5s 4.5s; }
-        .toast.success { background-color: #28a745; }
-        .toast.error { background-color: #dc3545; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
         @media (max-width: 1200px) { .dashboard-layout { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 768px) { .dashboard-layout { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
+<jsp:include page="common/notification.jsp" />
     <div class="container">
         <div class="header">
             <h2>PLASMIC Hospital Portal</h2>
@@ -122,11 +118,31 @@
 
                 <hr>
                 <h4>Manual Stock Adjustment</h4>
-                <form action="${pageContext.request.contextPath}/manual-add-stock" method="post">
-                    <div class="form-group"><label>Blood Group:</label><select name="bloodGroup" required><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
-                    <div class="form-group"><label>Units to Add:</label><input type="number" name="units" min="1" required></div>
+                <form action="${pageContext.request.contextPath}/manual-add-stock" method="post" style="margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label>Blood Group:</label>
+                        <select name="bloodGroup" required><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Units to Add:</label>
+                        <input type="number" name="units" min="1" required>
+                    </div>
                     <button type="submit" class="btn btn-approve">Add to Inventory</button>
                 </form>
+
+                <h4>Remove Damaged/Used Stock</h4>
+                <form action="${pageContext.request.contextPath}/manual-remove-stock" method="post">
+                    <div class="form-group">
+                        <label>Blood Group:</label>
+                        <select name="bloodGroup" required><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Units to Remove:</label>
+                        <input type="number" name="units" min="1" required>
+                    </div>
+                    <button type="submit" class="btn btn-decline">Remove from Inventory</button>
+                </form>
+
                 <hr>
                 <h4>Request Stock Transfer</h4>
                 <form action="${pageContext.request.contextPath}/request-transfer" method="post">
@@ -163,19 +179,18 @@
                             <c:forEach var="transfer" items="${pendingTransfers}">
                                 <tr>
                                     <td>${transfer.requestingHospitalName}</td><td>${transfer.bloodGroup}</td><td>${transfer.units}</td>
-                                   <%-- ✅ DEFINITIVE FIX: Use POST forms for actions to ensure reliability --%>
-<td class="actions">
-    <form action="${pageContext.request.contextPath}/approve-transfer" method="post" style="display:inline;">
-        <input type="hidden" name="transferId" value="${transfer.transferId}">
-        <input type="hidden" name="status" value="APPROVED">
-        <button type="submit" class="btn btn-approve">Approve</button>
-    </form>
-    <form action="${pageContext.request.contextPath}/approve-transfer" method="post" style="display:inline;">
-        <input type="hidden" name="transferId" value="${transfer.transferId}">
-        <input type="hidden" name="status" value="DECLINED">
-        <button type="submit" class="btn btn-decline">Decline</button>
-    </form>
-</td>
+                                    <td class="actions">
+                                        <form action="${pageContext.request.contextPath}/approve-transfer" method="post" style="display:inline;">
+                                            <input type="hidden" name="transferId" value="${transfer.transferId}">
+                                            <input type="hidden" name="status" value="APPROVED">
+                                            <button type="submit" class="btn btn-approve">Approve</button>
+                                        </form>
+                                        <form action="${pageContext.request.contextPath}/approve-transfer" method="post" style="display:inline;">
+                                            <input type="hidden" name="transferId" value="${transfer.transferId}">
+                                            <input type="hidden" name="status" value="DECLINED">
+                                            <button type="submit" class="btn btn-decline">Decline</button>
+                                        </form>
+                                    </td>
                                 </tr>
                             </c:forEach>
                         </tbody>
@@ -185,9 +200,6 @@
             <div class="panel">
                 <h3 class="processing-header">Processing Queue</h3>
                 
-                <%-- ================================================================== --%>
-                <%-- ✅ NEW UI: Pending Patient Blood Requests with Expandable Rows      --%>
-                <%-- ================================================================== --%>
                 <h4>Pending Patient Blood Requests</h4>
                 <c:if test="${empty pendingRequests}"><p class="empty-state">No pending patient requests.</p></c:if>
                 <c:if test="${not empty pendingRequests}">
@@ -202,7 +214,6 @@
                         </thead>
                         <tbody>
                             <c:forEach var="req" items="${pendingRequests}">
-                                <%-- Main row for the patient request --%>
                                 <tr>
                                     <td>${req.patientName}</td>
                                     <td>${req.bloodGroup}</td>
@@ -212,10 +223,13 @@
                                             <input type="hidden" name="requestId" value="${req.requestId}">
                                             <button type="submit" class="btn btn-approve">Approve</button>
                                         </form>
-                                        <%-- This button now calls our new toggle function --%>
-                                        <button class="btn btn-warning" onclick="toggleDonorSelection('donor-row-${req.requestId}')">
-                                            Via Donor
-                                        </button>
+                                        
+                                        <c:if test="${req.units > (empty currentStock[req.bloodGroup] ? 0 : currentStock[req.bloodGroup])}">
+                                            <button class="btn btn-warning" onclick="toggleDonorSelection('donor-row-${req.requestId}')">
+                                                Via Donor
+                                            </button>
+                                        </c:if>
+                                        
                                         <form action="${pageContext.request.contextPath}/decline-request" method="post" style="display:inline;">
                                             <input type="hidden" name="requestId" value="${req.requestId}">
                                             <button type="submit" class="btn btn-decline">Decline</button>
@@ -223,7 +237,6 @@
                                     </td>
                                 </tr>
 
-                                <%-- ✅ HIDDEN ROW: This row contains the donor selection form. It starts hidden. --%>
                                 <tr id="donor-row-${req.requestId}" class="donor-selection-row" style="display: none;">
                                     <td colspan="4" style="background-color: #fdf5f5; padding: 20px; border-bottom: 2px solid #d9534f;">
                                         <h5 style="margin-top: 0; color: #c9302c;">Select Emergency Donor(s) for ${req.patientName}</h5>
@@ -310,34 +323,28 @@
         </div>
     </div>
 
-    <%-- The modal is no longer used for donor selection and can be removed or repurposed --%>
-    <%-- <div id="donorModal" class="modal"> ... </div> --%>
-
-    <div id="toast-container"></div>
-
-    <%-- ================================================================== --%>
-    <%-- ✅ NEW SCRIPT: Manages Toasts and the new expandable rows         --%>
-    <%-- ================================================================== --%>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Function to show toast notifications (unchanged)
-            function showToast(message, type) {
-                if (!message || message.trim() === 'null' || message.trim() === '') return;
-                const container = document.getElementById('toast-container');
-                const toast = document.createElement('div');
-                toast.className = `toast ${type}`;
-                toast.textContent = decodeURIComponent(message.replace(/\+/g, ' '));
-                container.appendChild(toast);
-                setTimeout(() => toast.remove(), 5000);
+        function toggleDonorSelection(rowId) {
+            const donorRow = document.getElementById(rowId);
+            if (donorRow) {
+                document.querySelectorAll('.donor-selection-row').forEach(row => {
+                    if (row.id !== rowId) {
+                        row.style.display = 'none';
+                    }
+                });
+                if (donorRow.style.display === 'none') {
+                    donorRow.style.display = 'table-row';
+                } else {
+                    donorRow.style.display = 'none';
+                }
             }
+        }
 
-            showToast("<%= request.getParameter("success") %>", 'success');
-            showToast("<%= request.getParameter("error") %>", 'error');
-
-            // This part of the script builds the "Emergency Donor Contacts" list for out-of-stock items
+        document.addEventListener('DOMContentLoaded', function() {
             let emergencyContacts = {};
+            const emergencyContactsJson = '${emergencyContactsJson}';
+            
             try {
-                const emergencyContactsJson = '${emergencyContactsJson}';
                 if (emergencyContactsJson) {
                     emergencyContacts = JSON.parse(emergencyContactsJson);
                 }
@@ -346,51 +353,53 @@
             }
 
             const container = document.getElementById('emergency-contacts-container');
-            if (Object.keys(emergencyContacts).length === 0) {
+            const contactKeys = Object.keys(emergencyContacts);
+
+            if (contactKeys.length === 0) {
                 container.innerHTML = '<p class="empty-state">No emergency contacts needed at this time.</p>';
             } else {
-                for (const bloodGroup in emergencyContacts) {
+                // ✅ THE FIX: This new loop builds the HTML elements safely and correctly.
+                contactKeys.forEach(bloodGroup => {
+                    // Create the container for the group
                     const groupContainer = document.createElement('div');
-                    groupContainer.innerHTML = `<h5 style="color: #c9302c; margin-top: 20px;">Needed: ${bloodGroup}</h5>`;
+
+                    // Create and style the title (e.g., <h5>Needed: AB+</h5>)
+                    const title = document.createElement('h5');
+                    title.style.color = '#c9302c';
+                    title.style.marginTop = '20px';
+                    title.textContent = `Needed: ${bloodGroup}`;
+                    groupContainer.appendChild(title);
+
+                    // Create the table and its header
                     const table = document.createElement('table');
                     table.className = 'data-table';
                     table.innerHTML = `<thead><tr><th>Name</th><th>Action</th></tr></thead>`;
+                    
                     const tbody = document.createElement('tbody');
-                    emergencyContacts[bloodGroup].forEach(donor => {
+                    
+                    // Get the list of donors for the current blood group
+                    const donors = emergencyContacts[bloodGroup];
+                    
+                    donors.forEach(donor => {
                         const row = tbody.insertRow();
                         const nameCell = row.insertCell();
                         nameCell.textContent = donor.name;
+                        
+                        // Create the "Call Now" button safely
                         const actionCell = row.insertCell();
-                        actionCell.innerHTML = `<a href="tel:${donor.contactNumber || ''}" class="btn btn-call">Call Now</a>`;
+                        const callLink = document.createElement('a');
+                        callLink.href = `tel:${donor.contactNumber || ''}`;
+                        callLink.className = 'btn btn-call';
+                        callLink.textContent = 'Call Now';
+                        actionCell.appendChild(callLink);
                     });
+                    
                     table.appendChild(tbody);
                     groupContainer.appendChild(table);
                     container.appendChild(groupContainer);
-                }
+                });
             }
         });
-
-        /**
-         * ✅ NEW FUNCTION: Toggles the visibility of the donor selection row.
-         * This function is now globally accessible.
-         */
-        function toggleDonorSelection(rowId) {
-            const donorRow = document.getElementById(rowId);
-            if (donorRow) {
-                // Close all other open donor rows first for a cleaner UI
-                document.querySelectorAll('.donor-selection-row').forEach(row => {
-                    if (row.id !== rowId) {
-                        row.style.display = 'none';
-                    }
-                });
-                // Then, toggle the one that was clicked
-                if (donorRow.style.display === 'none') {
-                    donorRow.style.display = 'table-row'; // Show the row
-                } else {
-                    donorRow.style.display = 'none'; // Hide the row
-                }
-            }
-        }
     </script>
 </body>
 </html>

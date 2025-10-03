@@ -23,6 +23,7 @@
 %>
 <html>
 <head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <title>PLASMIC - Admin Stock Management</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -176,6 +177,7 @@
     </style>
 </head>
 <body>
+<jsp:include page="common/notification.jsp" />
     <div class="container">
         <h2>Admin Stock Management</h2>
 
@@ -211,8 +213,7 @@
                 </div>
                 <div class="panel">
                     <h3>Update Stock</h3>
-                    <c:if test="${not empty param.success}"><p class="message success">${param.success}</p></c:if>
-                    <c:if test="${not empty param.error}"><p class="message error">${param.error}</p></c:if>
+                    
                     
                     <form method="POST" action="${pageContext.request.contextPath}/admin/update-stock">
                         <input type="hidden" name="hospital_id" value="${selectedHospitalId}">
